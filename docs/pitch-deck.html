@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StableSettle — Pitch Deck</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ===========================================================
+         BlockFrame — maximalist neobrutalism
+         4px black borders · 8px hard offset shadows · candy pastels
+         Inter 900 uppercase display · Space Grotesk label chrome
+         =========================================================== */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --black: #000000;
+        --white: #ffffff;
+        --offwhite: #fffdf5;
+        --pink: #fe90e8;
+        --blue: #c0f7fe;
+        --green: #99e885;
+        --yellow: #f7cb46;
+        --cream: #ffdc8b;
+
+        --bd: 4px solid var(--black);
+        --bd3: 3px solid var(--black);
+        --sh: 8px 8px 0 var(--black);
+        --sh4: 4px 4px 0 var(--black);
+
+        --pad: clamp(1.5rem, 4.5vw, 3.75rem);
+
+        --xl: clamp(2.6rem, 7vw, 6rem);
+        --lg: clamp(1.9rem, 4.6vw, 4rem);
+        --md: clamp(1.3rem, 2.6vw, 2.4rem);
+        --body: clamp(0.95rem, 1.25vw, 1.2rem);
+        --label: clamp(0.62rem, 0.85vw, 0.8rem);
+      }
+
+      html, body { height: 100%; overflow: hidden; }
+      body {
+        background: var(--offwhite);
+        color: var(--black);
+        font-family: 'Inter', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* slides: one visible at a time (instant toggle, no scroll) */
+      .slide {
+        position: absolute; inset: 0;
+        width: 100vw; height: 100vh; height: 100dvh;
+        display: none; flex-direction: column; justify-content: center;
+        gap: clamp(0.8rem, 2vh, 1.6rem);
+        padding: var(--pad);
+        padding-bottom: clamp(4.5rem, 9vh, 6.5rem);
+        overflow: hidden;
+      }
+      .slide.active { display: flex; }
+
+      /* grounds (pastel rhythm) */
+      .g-offwhite { background: var(--offwhite); }
+      .g-cream { background: var(--cream); }
+      .g-blue { background: var(--blue); }
+      .g-pink { background: var(--pink); }
+      .g-green { background: var(--green); }
+      .g-yellow { background: var(--yellow); }
+      .g-black { background: var(--black); color: var(--white); }
+
+      /* dot-grid overlay */
+      .slide::before {
+        content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+        background-image: radial-gradient(circle, rgba(0,0,0,0.25) 1.2px, transparent 1.2px);
+        background-size: 24px 24px;
+        mask-image: radial-gradient(ellipse 70% 70% at 85% 15%, #000 0%, transparent 60%);
+        -webkit-mask-image: radial-gradient(ellipse 70% 70% at 85% 15%, #000 0%, transparent 60%);
+      }
+      .slide.g-black::before { background-image: radial-gradient(circle, rgba(255,255,255,0.18) 1.2px, transparent 1.2px); }
+
+      .stack { position: relative; z-index: 2; display: flex; flex-direction: column; gap: clamp(0.8rem, 2vh, 1.6rem); max-width: 1180px; }
+
+      /* ── type ── */
+      .xl { font-weight: 900; font-size: var(--xl); line-height: 0.92; letter-spacing: -0.03em; text-transform: uppercase; }
+      .lg { font-weight: 800; font-size: var(--lg); line-height: 0.98; letter-spacing: -0.02em; text-transform: uppercase; }
+      .md { font-weight: 800; font-size: var(--md); line-height: 1.04; letter-spacing: -0.015em; text-transform: uppercase; }
+      .body { font-weight: 500; font-size: var(--body); line-height: 1.55; max-width: 60ch; }
+      .hl-pink { background: var(--pink); padding: 0 0.12em; box-shadow: 3px 3px 0 var(--black); }
+      .hl-green { background: var(--green); padding: 0 0.12em; box-shadow: 3px 3px 0 var(--black); }
+      .hl-yellow { background: var(--yellow); padding: 0 0.12em; box-shadow: 3px 3px 0 var(--black); }
+      .hl-blue { background: var(--blue); padding: 0 0.12em; box-shadow: 3px 3px 0 var(--black); }
+      .un { box-shadow: inset 0 -0.35em 0 var(--yellow); }
+
+      /* ── label pill (eyebrow) ── */
+      .label {
+        align-self: flex-start; display: inline-flex; align-items: center; gap: 0.5em;
+        border: var(--bd3); box-shadow: var(--sh4); background: var(--white);
+        padding: 0.45em 1em; font-family: 'Space Grotesk', monospace; font-weight: 600;
+        font-size: var(--label); letter-spacing: 0.1em; text-transform: uppercase;
+      }
+      .label .dot { width: 0.6em; height: 0.6em; border-radius: 50%; border: 2px solid var(--black); background: var(--green); }
+      .label.l-pink { background: var(--pink); } .label.l-blue { background: var(--blue); }
+      .label.l-green { background: var(--green); } .label.l-yellow { background: var(--yellow); }
+      .label.l-cream { background: var(--cream); }
+
+      /* ── cards ── */
+      .card { border: var(--bd); background: var(--white); box-shadow: var(--sh); padding: clamp(1rem, 2vw, 1.75rem); }
+      .card.flat { box-shadow: none; }
+      .grid { display: grid; gap: clamp(0.7rem, 1.5vw, 1.1rem); }
+      .g2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+      .g3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+
+      /* icon square holding a lucide glyph */
+      .isq { width: clamp(40px, 4vw, 56px); height: clamp(40px, 4vw, 56px); border: var(--bd3); display: grid; place-items: center; flex-shrink: 0; }
+      .isq svg { width: 60%; height: 60%; stroke: var(--black); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .isq.s-pink { background: var(--pink); } .isq.s-blue { background: var(--blue); }
+      .isq.s-green { background: var(--green); } .isq.s-yellow { background: var(--yellow); } .isq.s-cream { background: var(--cream); }
+
+      .cell-tag { font-family: 'Space Grotesk', monospace; font-weight: 600; font-size: var(--label); letter-spacing: 0.08em; text-transform: uppercase; }
+      .cell-title { font-weight: 700; text-transform: uppercase; font-size: clamp(1rem, 1.5vw, 1.35rem); letter-spacing: -0.01em; line-height: 1.05; }
+      .cell-body { font-weight: 500; font-size: clamp(0.8rem, 1vw, 0.98rem); line-height: 1.45; }
+
+      /* numbered step (user flow) */
+      .snum { width: clamp(38px, 3.6vw, 50px); height: clamp(38px, 3.6vw, 50px); border: var(--bd3); background: var(--yellow); box-shadow: var(--sh4); display: grid; place-items: center; font-family: 'Space Grotesk', monospace; font-weight: 700; font-size: clamp(1.05rem, 1.5vw, 1.45rem); margin-bottom: 0.65em; }
+      .step .cell-title { margin-bottom: 0.35em; }
+      .step .cell-tag { margin-top: 0.65em; display: inline-block; }
+
+      /* numbered / icon list */
+      .list { display: flex; flex-direction: column; gap: clamp(0.55rem, 1.4vh, 1rem); }
+      .list .row { display: flex; align-items: center; gap: clamp(0.7rem, 1.5vw, 1.1rem); }
+      .list .row .body { font-size: clamp(0.9rem, 1.15vw, 1.1rem); line-height: 1.4; }
+      .list .row b { font-weight: 800; }
+
+      /* data rows (who/business) */
+      .drows { display: flex; flex-direction: column; }
+      .drow { display: grid; grid-template-columns: clamp(8rem, 22vw, 15rem) 1fr; gap: clamp(0.8rem, 2vw, 1.4rem); align-items: center; padding: clamp(0.5rem, 1.3vh, 0.9rem) 0; border-bottom: var(--bd3); }
+      .drow:first-child { border-top: var(--bd3); }
+      .drow .k { font-weight: 800; text-transform: uppercase; font-size: clamp(0.85rem, 1.1vw, 1.05rem); letter-spacing: -0.01em; }
+      .drow .v { font-weight: 500; font-size: clamp(0.82rem, 1vw, 1rem); line-height: 1.35; }
+
+      /* command terminal (how-to slide) */
+      .term { border: var(--bd); background: var(--black); box-shadow: var(--sh); padding: clamp(0.9rem,2vw,1.5rem); font-family: 'Space Grotesk', monospace; font-size: clamp(0.74rem,1.05vw,0.98rem); line-height: 1.65; color: var(--white); overflow-x: auto; }
+      .term .row2 { white-space: pre; }
+      .term .tool { color: var(--green); font-weight: 700; }
+      .term .arg { color: var(--blue); }
+      .term .c { color: #8a8a8a; }
+      .term .hd { color: var(--yellow); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; display: block; margin: 0.9em 0 0.3em; font-size: 0.92em; }
+      .term .hd:first-child { margin-top: 0; }
+
+      /* explorer links (proof slide) */
+      a { color: inherit; }
+      .drow .v a, .lnk { font-family: 'Space Grotesk', monospace; font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+      .drow .v a:hover, .lnk:hover { background: var(--yellow); }
+
+      /* chat (slide 4) */
+      .chat { display: flex; flex-direction: column; gap: clamp(0.6rem, 1.4vh, 1rem); max-width: 720px; }
+      .bub { border: var(--bd); padding: clamp(0.8rem, 1.6vw, 1.2rem); font-weight: 500; font-size: var(--body); }
+      .bub.user { align-self: flex-end; background: var(--blue); box-shadow: var(--sh4); max-width: 85%; transform: rotate(-1deg); }
+      .bub.bot { align-self: flex-start; background: var(--white); box-shadow: var(--sh); width: 100%; }
+      .who { font-family: 'Space Grotesk', monospace; font-weight: 600; font-size: var(--label); letter-spacing: 0.08em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 0.5em; margin-bottom: 0.7em; }
+      .who .mini { width: 1.4em; height: 1.4em; border: 2px solid var(--black); background: var(--green); display: grid; place-items: center; }
+      .who .mini svg { width: 70%; height: 70%; stroke: var(--black); fill: none; stroke-width: 2.2; }
+      .dcard .dtitle { font-weight: 800; text-transform: uppercase; font-size: clamp(1rem, 1.6vw, 1.35rem); letter-spacing: -0.01em; margin-bottom: 0.5em; }
+      .dcard .blab { font-family: 'Space Grotesk', monospace; font-size: clamp(0.72rem, 0.95vw, 0.88rem); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4em; }
+      .dcard .blab .cap { background: var(--green); padding: 0 0.3em; border: 2px solid var(--black); }
+      .track { height: clamp(14px, 1.8vh, 18px); border: var(--bd3); background: var(--white); position: relative; overflow: hidden; }
+      .track .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: repeating-linear-gradient(45deg, var(--black), var(--black) 4px, var(--green) 4px, var(--green) 12px); }
+      .slide.active .track .fill { animation: scan 2.6s ease-in-out 0.8s infinite; }
+      @keyframes scan { 0% { transform: translateX(-110%); } 100% { transform: translateX(360%); } }
+      .dcard .meta { margin-top: 0.6em; font-family: 'Space Grotesk', monospace; font-size: clamp(0.7rem, 0.9vw, 0.85rem); display: flex; flex-wrap: wrap; gap: 0.3em 1.2em; }
+
+      /* wow */
+      .revert-card { border: var(--bd); background: var(--black); color: var(--white); box-shadow: 10px 10px 0 var(--yellow); padding: clamp(1rem, 2.4vw, 2rem); align-self: flex-start; max-width: 760px; }
+      .revert-card .big { font-weight: 900; text-transform: uppercase; font-size: clamp(1.6rem, 4.5vw, 3.6rem); line-height: 0.95; letter-spacing: -0.02em; }
+      .revert-card .sub { font-family: 'Space Grotesk', monospace; margin-top: 0.5em; font-size: clamp(0.8rem, 1.1vw, 1rem); color: var(--cream); letter-spacing: 0.04em; }
+      .wow-lines { font-family: 'Space Grotesk', monospace; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: var(--body); display: flex; flex-direction: column; gap: 0.1em; }
+
+      /* architecture flow */
+      .flow { display: flex; flex-direction: column; gap: clamp(0.5rem, 1.3vh, 0.9rem); font-family: 'Space Grotesk', monospace; }
+      .flow-row { display: flex; flex-wrap: wrap; align-items: center; gap: clamp(0.4rem, 1vw, 0.8rem); }
+      .node { border: var(--bd3); background: var(--white); box-shadow: var(--sh4); padding: 0.45em 0.8em; font-weight: 600; font-size: clamp(0.72rem, 0.95vw, 0.92rem); text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+      .node.safe { background: var(--green); } .node.hl { background: var(--yellow); }
+      .arrow { font-weight: 700; }
+
+      /* simplified 3-box architecture */
+      .archrow { display: flex; align-items: stretch; flex-wrap: wrap; gap: clamp(0.6rem, 1.4vw, 1.1rem); }
+      .abox { flex: 1 1 220px; display: flex; flex-direction: column; gap: 0.4em; }
+      .abox .cell-title { font-size: clamp(1.1rem, 1.8vw, 1.6rem); }
+      .abox .cell-body { font-size: clamp(0.85rem, 1.05vw, 1.05rem); }
+      .aarrow { align-self: center; font-weight: 900; font-size: clamp(1.4rem, 2.4vw, 2.4rem); }
+      @media (max-width: 720px) { .abox { flex-basis: 100%; } .aarrow { transform: rotate(90deg); align-self: flex-start; margin-left: 1.2rem; } }
+
+      /* chips */
+      .chips { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+      .chip { border: var(--bd3); box-shadow: var(--sh4); background: var(--white); padding: 0.4em 0.9em; font-family: 'Space Grotesk', monospace; font-weight: 600; font-size: var(--label); letter-spacing: 0.06em; text-transform: uppercase; }
+
+      /* decorations */
+      .deco { position: absolute; z-index: 1; border: var(--bd3); }
+      .star { position: absolute; z-index: 1; border: var(--bd3); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+      .stripe { background: repeating-linear-gradient(45deg, var(--black), var(--black) 5px, var(--green) 5px, var(--green) 14px); }
+
+      /* close slide */
+      .close-card { border: 4px solid var(--white); box-shadow: 12px 12px 0 var(--yellow); background: var(--black); padding: clamp(1.5rem, 4vw, 3rem); align-self: flex-start; max-width: 900px; }
+      .tagline { font-family: 'Space Grotesk', monospace; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--body); }
+
+      /* chrome */
+      .counter { position: fixed; left: clamp(1rem, 3vw, 2rem); bottom: clamp(1rem, 3vh, 1.75rem); z-index: 50; border: var(--bd3); box-shadow: var(--sh4); background: var(--white); color: var(--black); padding: 0.55em 1em; font-family: 'Space Grotesk', monospace; font-weight: 700; font-size: var(--label); letter-spacing: 0.12em; text-transform: uppercase; }
+      .nav { position: fixed; right: clamp(1rem, 3vw, 2rem); bottom: clamp(1rem, 3vh, 1.75rem); z-index: 50; display: flex; gap: 0.6rem; }
+      .nav button { width: clamp(40px, 4vw, 48px); height: clamp(40px, 4vw, 48px); border: var(--bd3); box-shadow: var(--sh4); background: var(--white); cursor: pointer; font-size: 1.1rem; font-weight: 800; transition: transform 0.1s, box-shadow 0.1s; display: grid; place-items: center; }
+      .nav button:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--black); }
+      .nav button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--black); }
+
+      /* reveal */
+      .rv { opacity: 0; transform: translateY(14px); }
+      .slide.active .rv { animation: rise 0.55s cubic-bezier(0.22,1,0.36,1) forwards; }
+      .d1 { animation-delay: 0.04s; } .d2 { animation-delay: 0.14s; } .d3 { animation-delay: 0.26s; } .d4 { animation-delay: 0.38s; } .d5 { animation-delay: 0.5s; }
+      @keyframes rise { to { opacity: 1; transform: none; } }
+
+      /* responsive */
+      @media (max-height: 760px) { :root { --xl: clamp(2.2rem, 6vw, 4rem); --lg: clamp(1.6rem, 4vw, 2.8rem); --pad: clamp(1.1rem, 3.5vw, 2.4rem); } .slide { gap: clamp(0.6rem,1.6vh,1rem); } }
+      @media (max-height: 600px) { .body { font-size: 0.85rem; } .slide::before { display: none; } }
+      @media (max-width: 720px) { .drow { grid-template-columns: 1fr; gap: 0.1rem; } .bub.user { max-width: 100%; } }
+      @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; } .track .fill { animation: none; } }
+    </style>
+  </head>
+
+  <body>
+    <!-- Lucide-style icon sprite -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m11.5 11.5 8.5-8.5"/><path d="m17 5 3 3"/><path d="m14 8 2.5 2.5"/></symbol>
+      <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="0"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></symbol>
+      <symbol id="i-bars" viewBox="0 0 24 24"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></symbol>
+      <symbol id="i-badge" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><circle cx="9" cy="10" r="2"/><path d="M6.5 16a2.5 2.5 0 0 1 5 0"/><line x1="15" y1="9" x2="18" y2="9"/><line x1="15" y1="13" x2="18" y2="13"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+      <symbol id="i-warn" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    </svg>
+
+    <!-- ░ 1 · COVER ░ -->
+    <section class="slide g-cream active" aria-label="Title">
+      <div class="star s-pink" style="width:clamp(70px,9vw,130px);height:clamp(70px,9vw,130px);background:var(--pink);top:8%;right:9%;transform:rotate(12deg)"></div>
+      <div class="deco" style="width:clamp(50px,6vw,90px);height:clamp(50px,6vw,90px);background:var(--blue);bottom:14%;right:18%;transform:rotate(-8deg)"></div>
+      <div class="stack">
+        <span class="label l-green rv d1"><span class="dot"></span> AI Treasury · Arc Testnet</span>
+        <h1 class="xl rv d2">Stable<br />Settle</h1>
+        <p class="lg rv d3" style="font-size:var(--md)">Spawn a budget-capped AI treasury in <span class="hl-yellow">15 seconds</span>.</p>
+        <div class="card rv d4" style="max-width:640px;background:var(--white)">
+          <p class="body"><b style="font-weight:800">AI agents can hold and spend stablecoins</b> — but they can't overspend or burst-drain, because the budget cap <i>and</i> a daily velocity limit are enforced on-chain.</p>
+        </div>
+        <div class="chips rv d5"><span class="chip">Arc</span><span class="chip">Circle</span><span class="chip">ENS</span><span class="chip">World ID</span><span class="chip">MCP</span></div>
+      </div>
+    </section>
+
+    <!-- ░ 2 · PROBLEM ░ -->
+    <section class="slide g-blue" aria-label="The problem">
+      <div class="deco stripe" style="width:clamp(60px,7vw,110px);height:clamp(60px,7vw,110px);top:11%;right:10%;transform:rotate(8deg)"></div>
+      <div class="stack">
+        <span class="label l-pink rv d1">02 — The problem</span>
+        <h2 class="lg rv d2">Everyone wants paying agents.<br /><span class="hl-pink">Most built a transfer bot.</span></h2>
+        <div class="card rv d3" style="background:var(--white)">
+          <div class="list">
+            <div class="row"><span class="isq s-pink"><svg viewBox="0 0 24 24"><use href="#i-key" /></svg></span><p class="body"><b>API keys leak</b> — and the agent's wallet holds the funds.</p></div>
+            <div class="row"><span class="isq s-blue"><svg viewBox="0 0 24 24"><use href="#i-unlock" /></svg></span><p class="body"><b>Backend limits get bypassed</b> — SSRF, a leaked key, a direct on-chain tx.</p></div>
+            <div class="row"><span class="isq s-green"><svg viewBox="0 0 24 24"><use href="#i-bars" /></svg></span><p class="body"><b>Dashboards detect overspending</b> only after it happens.</p></div>
+            <div class="row"><span class="isq s-yellow"><svg viewBox="0 0 24 24"><use href="#i-badge" /></svg></span><p class="body"><b>Identity &amp; compliance</b> get bolted on last, if ever.</p></div>
+          </div>
+        </div>
+        <p class="md rv d4" style="font-size:var(--body);font-weight:700">The limit always sits <span class="hl-yellow">outside the money</span>.</p>
+      </div>
+    </section>
+
+    <!-- ░ 3 · ATTACK SURFACE ░ -->
+    <section class="slide g-offwhite" aria-label="Attack surface">
+      <div class="stack">
+        <span class="label l-yellow rv d1">03 — Where the limit lives</span>
+        <h2 class="lg rv d2">The limit can't sit <span class="hl-pink">outside</span> the money.</h2>
+        <div class="grid g3 rv d3">
+          <div class="card flat" style="border-top:10px solid var(--black)"><div class="cell-title" style="display:flex;align-items:center;gap:0.4em"><span class="isq s-pink" style="width:2em;height:2em"><svg viewBox="0 0 24 24"><use href="#i-x" /></svg></span>Raw key + funds</div><p class="cell-body" style="margin:0.6em 0">Agent holds the key <b>and</b> the USDC.</p><p class="cell-tag">key leaks → all drained</p></div>
+          <div class="card flat" style="border-top:10px solid var(--black)"><div class="cell-title" style="display:flex;align-items:center;gap:0.4em"><span class="isq s-yellow" style="width:2em;height:2em"><svg viewBox="0 0 24 24"><use href="#i-warn" /></svg></span>Backend limit</div><p class="cell-body" style="margin:0.6em 0">A check on your server.</p><p class="cell-tag">bypass API → caught late</p></div>
+          <div class="card" style="border-top:10px solid var(--black);background:var(--green)"><div class="cell-title" style="display:flex;align-items:center;gap:0.4em"><span class="isq s-green" style="width:2em;height:2em;background:var(--white)"><svg viewBox="0 0 24 24"><use href="#i-shield" /></svg></span>StableSettle</div><p class="cell-body" style="margin:0.6em 0">Treasury stays in the vault; the agent's wallet holds only <b>gas dust</b> — never the funds.</p><p class="cell-tag">spend() over cap → REVERTS</p></div>
+        </div>
+        <div class="card rv d4" style="background:var(--black);color:var(--white);box-shadow:8px 8px 0 var(--pink)"><p class="body" style="color:var(--white)">An AI agent without a human is a liability. <b style="font-weight:800">With StableSettle it's the extension of a verified human</b> — World ID proves who's accountable, ENS proves what it's authorized to do.</p></div>
+      </div>
+    </section>
+
+    <!-- ░ 4 · SOLUTION ░ -->
+    <section class="slide g-green" aria-label="The solution">
+      <div class="star" style="width:clamp(56px,7vw,100px);height:clamp(56px,7vw,100px);background:var(--yellow);top:9%;right:8%;transform:rotate(-10deg)"></div>
+      <div class="stack">
+        <span class="label l-cream rv d1">04 — The solution</span>
+        <h2 class="lg rv d2">A wallet, an identity, a budget it <span class="hl-yellow">can't break</span>.</h2>
+        <p class="body rv d3">Fund <b>one wallet</b> once. Then spawn budget-capped agents on command — each gets its <b>own</b> wallet, backed by your funds, capped on-chain. Exposed as <b>open MCP tools</b>: works in Claude, Cursor, or your own app — or call the SDK directly.</p>
+        <div class="chat rv d4">
+          <div class="bub user">Spin up a trading agent with a $5,000 budget — human-backed.</div>
+          <div class="bub bot">
+            <div class="who"><span class="mini"><svg viewBox="0 0 24 24"><use href="#i-shield" /></svg></span> StableSettle · spawned in ~15s</div>
+            <div class="dcard">
+              <div class="dtitle">trader-bot.stablesettle.eth</div>
+              <div class="blab">budget $0 spent · <span class="cap">cap $5,000</span></div>
+              <div class="track"><div class="fill"></div></div>
+              <div class="meta"><span>Wallet 0xAge…</span><span>Human verified ✓</span><span>Vault 0xVau…</span><span>Arc ↗</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ░ 5 · WOW ░ -->
+    <section class="slide g-pink" aria-label="The wow moment">
+      <div class="deco" style="width:clamp(50px,6vw,90px);height:clamp(50px,6vw,90px);background:var(--blue);bottom:12%;right:12%;transform:rotate(10deg)"></div>
+      <div class="stack">
+        <span class="label l-white rv d1">05 — The wow moment</span>
+        <h2 class="lg rv d2">Spend $5,001 from a $5,000 vault.</h2>
+        <div class="wow-lines rv d3"><span>It does not warn.</span><span>It does not flag.</span><span>It does not ask a backend.</span></div>
+        <div class="revert-card rv d4"><div class="big">It reverts<br />on-chain.</div><div class="sub">→ BudgetExceeded(5001, 5000)</div></div>
+        <p class="body rv d5" style="font-weight:600">The same guard backs a <b style="font-weight:800">daily velocity limit</b> and a <b style="font-weight:800">per-transaction cap</b> — a hijacked agent can't burst-drain even with budget left. Proven by <b style="font-weight:800">82 contract tests</b> + a one-command local e2e.</p>
+      </div>
+    </section>
+
+    <!-- ░ 6 · WHERE WE FIT ░ -->
+    <section class="slide g-offwhite" aria-label="Where we fit">
+      <div class="stack">
+        <span class="label l-blue rv d1">06 — Where we fit</span>
+        <h2 class="lg rv d2">We're the <span class="hl-green">guardrail</span>,<br />not another wallet.</h2>
+        <div class="grid g2 rv d3">
+          <div class="card flat"><div class="cell-title" style="display:flex;align-items:center;gap:0.4em"><span class="isq s-blue" style="width:2em;height:2em"><svg viewBox="0 0 24 24"><use href="#i-zap" /></svg></span>Agent toolkits</div><p class="cell-body" style="margin:0.6em 0">Coinbase AgentKit · Circle wallets · CDP — give an agent the <b>ability to pay</b>.</p><p class="cell-tag">capability</p></div>
+          <div class="card" style="background:var(--green)"><div class="cell-title" style="display:flex;align-items:center;gap:0.4em"><span class="isq s-green" style="width:2em;height:2em;background:var(--white)"><svg viewBox="0 0 24 24"><use href="#i-shield" /></svg></span>StableSettle</div><p class="cell-body" style="margin:0.6em 0">The on-chain limit it <b>can't break</b> + ENS identity + World ID accountability.</p><p class="cell-tag">control</p></div>
+        </div>
+        <div class="card rv d4" style="background:var(--white)"><p class="cell-body"><b>On-chain caps aren't unique</b> — Crossmint, Coinbase &amp; ERC-4337 session keys enforce on-chain too. Our edge: <b>no co-signer / no off-chain gate</b> in the trust path · <b>Arc USDC-is-gas</b> single contract · <b>ENS + World ID</b> identity from birth.</p></div>
+        <p class="body rv d5" style="font-weight:600">Toolkits hand the agent the keys. <b style="font-weight:800">We're the speed limiter + the licensed driver</b> — we stack on top, we don't compete.</p>
+      </div>
+    </section>
+
+    <!-- ░ 7 · USER FLOW ░ -->
+    <section class="slide g-blue" aria-label="How you use it">
+      <div class="stack">
+        <span class="label l-pink rv d1">07 — How you use it</span>
+        <h2 class="lg rv d2">From nothing to a funded, capped agent — in <span class="hl-yellow">5 steps</span>.</h2>
+        <div class="grid rv d3" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))">
+          <div class="card flat step"><div class="snum">1</div><div class="cell-title">Connect</div><p class="cell-body">Add the StableSettle <b>MCP server</b> — Claude, Cursor, Codex, or a hosted URL. One time.</p><span class="cell-tag">any MCP client</span></div>
+          <div class="card step" style="background:var(--green)"><div class="snum">2</div><div class="cell-title">Spawn</div><p class="cell-body">“Give my trading bot a <b>$5k budget, $500/tx</b>.” → its own <b>Circle wallet</b> + <b>AgentVault</b> + ENS + World ID, in ~15s.</p><span class="cell-tag">spawn_agent · ~15s</span></div>
+          <div class="card flat step"><div class="snum">3</div><div class="cell-title">Fund</div><p class="cell-body">Send USDC from <b>your</b> wallet to the <b>vault</b> — capped &amp; safe. The agent's wallet gets only <b>gas dust</b>, never the treasury.</p><span class="cell-tag">your money → the vault</span></div>
+          <div class="card flat step"><div class="snum">4</div><div class="cell-title">Delegate</div><p class="cell-body">The agent pays vendors or autonomously <b>buys via x402</b>. Under cap it pays; <b>over cap it reverts</b>.</p><span class="cell-tag">agent_pay · x402</span></div>
+          <div class="card flat step"><div class="snum">5</div><div class="cell-title">Stay in control</div><p class="cell-body"><b>get_agent</b> to watch cap/spent/balance; <b>setCap</b> · <b>revoke</b> · <b>withdraw</b> anytime — owner-only, on-chain.</p><span class="cell-tag">you stay in charge</span></div>
+        </div>
+        <p class="body rv d4" style="font-weight:600">The money you add lives in the <b style="font-weight:800">vault</b>, behind the cap — not in the agent's hands. The agent can <i>spend</i> up to the limit; only <b>you</b> can change the limit or pull funds out.</p>
+      </div>
+    </section>
+
+    <!-- ░ 8 · ARCHITECTURE ░ -->
+    <section class="slide g-cream" aria-label="Architecture">
+      <div class="stack">
+        <span class="label l-green rv d1">08 — Architecture</span>
+        <h2 class="lg rv d2">Server makes it usable.<br /><span class="hl-green">Contract makes it safe.</span></h2>
+        <div class="archrow rv d3">
+          <div class="card flat abox"><span class="cell-tag">you</span><div class="cell-title">In Claude</div><p class="cell-body">Ask in plain English. The agent signs its own request.</p></div>
+          <div class="aarrow">→</div>
+          <div class="card flat abox"><span class="cell-tag">relays</span><div class="cell-title">MCP server</div><p class="cell-body">Passes the request through — holds <b>no veto</b> over the money.</p></div>
+          <div class="aarrow">→</div>
+          <div class="card abox" style="background:var(--green)"><span class="cell-tag">enforces</span><div class="cell-title">AgentVault · Arc</div><p class="cell-body"><b>The cap lives here.</b> Over budget → reverts. This is what an attacker hits.</p></div>
+        </div>
+        <p class="body rv d4" style="font-weight:600">The server can't overspend your money — <b style="font-weight:800">the contract won't let it.</b></p>
+      </div>
+    </section>
+
+    <!-- ░ 9 · HOW THE CAP WORKS ░ -->
+    <section class="slide g-offwhite" aria-label="How the cap works">
+      <div class="stack">
+        <span class="label l-yellow rv d1">09 — How the cap works</span>
+        <h2 class="lg rv d2">The limit is <span class="hl-green">five lines</span> of Solidity.</h2>
+        <p class="body rv d3">There's no “Arc spending limit” feature — the cap is a contract we wrote. USDC lives in <b>AgentVault</b>; the agent only holds a <b>role</b>; every spend runs this gate <b>before any money moves</b>.</p>
+        <div class="term rv d4">
+          <div><span class="c">// only the agent's ROLE may call — it never holds the funds</span></div>
+          <div><span class="tool">function spend</span>(to, amount) <span class="arg">onlyRole(AGENT_ROLE)</span> {</div>
+          <div>&nbsp;&nbsp;require(amount &lt;= <span class="arg">maxPerSpend</span>)<span class="c">         // per-transaction cap</span></div>
+          <div>&nbsp;&nbsp;require(spent + amount &lt;= <span class="arg">budgetCap</span>)<span class="c"> // ← THE LIMIT</span></div>
+          <div>&nbsp;&nbsp;require(amount &lt;= <span class="arg">dailyRemaining</span>())<span class="c">   // rolling 24h velocity</span></div>
+          <div>&nbsp;&nbsp;spent += amount<span class="c">                      // recorded BEFORE money moves</span></div>
+          <div>&nbsp;&nbsp;USDC.<span class="tool">transfer</span>(to, amount)<span class="c">            // …only now does it pay</span></div>
+          <div>}</div>
+          <div><span class="c">// over ANY limit → revert. no backend, no co-signer, no off-chain gate.</span></div>
+        </div>
+        <p class="body rv d5" style="font-weight:600">The money lives in the contract; the agent can only <i>ask</i>. A stolen key, a hallucination, a prompt injection — all hit the same wall: <b>spend() reverts</b>.</p>
+      </div>
+    </section>
+
+    <!-- ░ 10 · WHO USES THIS ░ -->
+    <section class="slide g-green" aria-label="Who uses this">
+      <div class="star s-pink" style="width:clamp(50px,6vw,90px);height:clamp(50px,6vw,90px);background:var(--pink);top:10%;right:9%;transform:rotate(14deg)"></div>
+      <div class="stack">
+        <span class="label l-yellow rv d1">10 — Who uses this</span>
+        <h2 class="lg rv d2">Anyone about to give an agent money.</h2>
+        <div class="card rv d3" style="background:var(--white)">
+          <div class="drows">
+            <div class="drow"><span class="k">E-commerce</span><span class="v">Agent pays vendors, creators, logistics — within a cap.</span></div>
+            <div class="drow"><span class="k">AI trading bot</span><span class="v">Spends only within a daily / monthly USDC budget.</span></div>
+            <div class="drow"><span class="k">DAO ops bot</span><span class="v">Pays contributors with enforced limits.</span></div>
+            <div class="drow"><span class="k">Marketplace</span><span class="v">Splits stablecoin payments across parties.</span></div>
+            <div class="drow"><span class="k">Enterprise finance</span><span class="v">Grants an AI agent limited, revocable treasury access.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ░ 11 · BUSINESS MODEL ░ -->
+    <section class="slide g-yellow" aria-label="Business model">
+      <div class="stack">
+        <span class="label l-white rv d1">11 — Business model</span>
+        <h2 class="lg rv d2">Don't monetize the commodity.<br /><span class="hl-pink">Monetize the guarantee.</span></h2>
+        <p class="body rv d3" style="font-weight:600">Moving stablecoins is a race to zero — the market prices routing at <b>~0.01% and falling</b>. We don't fight there.</p>
+        <div class="card rv d4" style="background:var(--white)">
+          <div class="drows">
+            <div class="drow"><span class="k">Settlement</span><span class="v">~0–1 bp · table stakes — commoditized, never the moat.</span></div>
+            <div class="drow"><span class="k" style="background:var(--green);box-shadow:3px 3px 0 #000;padding:0.1em 0.4em">Safety + compliance ★</span><span class="v">Enterprise seats — the differentiated layer, real pricing power.</span></div>
+            <div class="drow"><span class="k">Yield on float</span><span class="v">A cut of the yield on idle vault USDC — never the budget.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ░ 12 · WHY WE WIN ░ -->
+    <section class="slide g-blue" aria-label="Why we win each track">
+      <div class="stack">
+        <span class="label l-pink rv d1">12 — Why each layer earns its place</span>
+        <h2 class="lg rv d2">Not a logo soup.<br />Each piece <span class="hl-green">kills a fear</span>.</h2>
+        <div class="grid g3 rv d3">
+          <div class="card flat"><div class="cell-tag">"what if it overspends?"</div><div class="cell-title">AgentVault · Arc</div><p class="cell-body">The cap is a Solidity invariant — an over-budget spend <b>reverts</b>. Even a stolen key can't cross it.</p></div>
+          <div class="card flat"><div class="cell-tag">"who is this agent? what can it do?"</div><div class="cell-title">ENS identity</div><p class="cell-body">A human-readable name — <b>trader-bot.stablesettle.eth</b> — with its spend policy in on-chain text records. Look it up, don't trust an anonymous 0x.</p></div>
+          <div class="card flat"><div class="cell-tag">"what if it goes rogue — who's accountable?"</div><div class="cell-title">World ID</div><p class="cell-body">A real, unique human vouches at spawn; the <b>nullifier on-chain</b> is the trail. One human → one agent.</p></div>
+          <div class="card flat"><div class="cell-tag">"whose keys &amp; funds does it hold?"</div><div class="cell-title">Circle wallet</div><p class="cell-body">Its <b>own isolated wallet</b> — never your main treasury. The blast radius is one agent.</p></div>
+          <div class="card" style="background:var(--yellow)"><div class="cell-tag">"how do I actually run it?"</div><div class="cell-title">MCP</div><p class="cell-body">One command inside Claude — <b>spawn, pay, inspect</b>. No dashboard to babysit.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ░ 13 · WHAT'S BUILT ░ -->
+    <section class="slide g-green" aria-label="What's built">
+      <div class="stack">
+        <span class="label l-yellow rv d1">13 — What's built</span>
+        <h2 class="lg rv d2">This is <span class="hl-pink">not</span> vaporware.</h2>
+        <div class="grid g2 rv d3">
+          <div class="card flat"><p class="cell-body"><b>AgentVault.sol</b> — lifetime cap + per-tx cap + daily velocity limit + on-chain health view + non-bricking fee. <b>46 tests.</b></p></div>
+          <div class="card flat"><p class="cell-body"><b>StableSettleEscrow</b> — settlement, disputes. <b>82 tests repo-wide.</b></p></div>
+          <div class="card flat"><p class="cell-body"><b>MCP server</b> — spawn_agent / agent_pay / agent_pay_x402 / get_agent.</p></div>
+          <div class="card flat"><p class="cell-body"><b>x402 nanopayments</b> — agent buys a real service; the toll routes through the cap. <b>e2e 8/8.</b></p></div>
+          <div class="card flat"><p class="cell-body"><b>ENS · World ID · Circle</b> wallets wired.</p></div>
+          <div class="card flat"><p class="cell-body"><b>Local e2e</b> — deploy → fund → gas → over-budget revert, 13/13.</p></div>
+          <div class="card flat"><p class="cell-body"><b>Agent Vaults dashboard</b> — budget + velocity meters, on-chain health, live spend feed.</p></div>
+          <div class="card" style="background:var(--cream)"><p class="cell-body">Roadmap: <b>rolling allowlists</b> · session keys · audit pre-mainnet.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ░ 14 · PROOF — LIVE ON-CHAIN ░ -->
+    <section class="slide g-offwhite" aria-label="Proof — live on Arc testnet">
+      <div class="stack">
+        <span class="label l-green rv d1">14 — Receipts</span>
+        <h2 class="lg rv d2">It's already running <span class="hl-green">on Arc</span>.</h2>
+        <p class="body rv d3">One agent — <b>judge-demo</b> — spawned and driven end-to-end through the MCP tools on Arc testnet. Every hash below opens on the explorer. Check it yourself.</p>
+        <div class="card rv d4" style="background:var(--white)">
+          <div class="drows">
+            <div class="drow"><span class="k">Spawn → vault</span><span class="v"><a href="https://testnet.arcscan.app/tx/0x075978d367fd25ebf9c5a8969c000265b3de82e6e454cc3cea20045758da910f" target="_blank" rel="noopener">deploy 0x0759…a910f ↗</a> &nbsp;·&nbsp; cap $2 · per-tx $1, on-chain</span></div>
+            <div class="drow"><span class="k">Agent paid $0.30</span><span class="v"><a href="https://testnet.arcscan.app/tx/0x20d1e3f2c7588b4d0802f1556054bfdf214785765c2617420a90a240d6d61d11" target="_blank" rel="noopener">spend 0x20d1…1d11 ↗</a> &nbsp;·&nbsp; under cap ✓</span></div>
+            <div class="drow"><span class="k">$1.50 single spend</span><span class="v">⛔ <a href="https://testnet.arcscan.app/tx/0xc0d8b3e5a3ab4aab483b9051cbc70869032fa2f191c44e14803c1511061cc27d" target="_blank" rel="noopener">reverted 0xc0d8…c27d ↗</a> &nbsp;·&nbsp; over the $1 per-tx cap → Failed on-chain ($1.70 budget left)</span></div>
+            <div class="drow"><span class="k">Agent bought x402</span><span class="v"><a href="https://testnet.arcscan.app/tx/0xd0ea99374e59fb7206bee83117c2576c1af287e7439606ed5dc4c79093233511" target="_blank" rel="noopener">spend 0xd0ea…3511 ↗</a> &nbsp;·&nbsp; $0.01 nanopayment, data returned</span></div>
+            <div class="drow"><span class="k">The vault</span><span class="v"><a href="https://testnet.arcscan.app/address/0x0ee9d4e62aff168e1d8dac448a77cdafc9932396" target="_blank" rel="noopener">0x0ee9…2396 ↗</a> &nbsp;·&nbsp; see every fund · gas · setMaxPerSpend · spend</span></div>
+            <div class="drow"><span class="k">Agent wallet</span><span class="v"><a href="https://testnet.arcscan.app/address/0x64dd073700008cf173ed070fc45593be53f8f05a" target="_blank" rel="noopener">0x64dd…f05a ↗</a> &nbsp;·&nbsp; isolated Circle wallet — holds only AGENT_ROLE</span></div>
+          </div>
+        </div>
+        <p class="body rv d5" style="font-weight:600"><b>Check status anytime</b> — <b>get_agent</b> → $0.31 spent / $2 cap · $1.69 left · per-tx $1 · balance $0.49. <b>Top up live</b> with <b>fund_agent</b> (treasury) &amp; <b>topup_gas</b> (wallet) — no re-spawn.</p>
+      </div>
+    </section>
+
+    <!-- ░ 15 · HOW TO DRIVE IT ░ -->
+    <section class="slide g-cream" aria-label="How to drive it">
+      <div class="stack">
+        <span class="label l-pink rv d1">15 — How to drive it</span>
+        <h2 class="lg rv d2">Set the caps. Top up. <span class="hl-green">All by name.</span></h2>
+        <div class="term rv d3">
+          <span class="hd">MCP tools — call in Claude</span>
+          <div><span class="tool">spawn_agent</span> <span class="arg">name</span>=trader <span class="arg">budget</span>=5000 <span class="arg">maxPerSpend</span>=500 <span class="arg">fund</span>=1000 <span class="arg">gas</span>=1</div>
+          <div><span class="c"># ↑ one call: lifetime cap + per-tx cap + initial funds + gas</span></div>
+          <div><span class="tool">fund_agent</span>&nbsp; <span class="arg">name</span>=trader <span class="arg">amount</span>=500 &nbsp;&nbsp;<span class="c"># top up the treasury (spendable USDC)</span></div>
+          <div><span class="tool">topup_gas</span>&nbsp;&nbsp; <span class="arg">name</span>=trader <span class="arg">amount</span>=1 &nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># top up the agent's gas (USDC is gas on Arc)</span></div>
+          <div><span class="tool">get_agent</span>&nbsp;&nbsp; <span class="arg">name</span>=trader &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># cap · spent · remaining · per-tx · daily · balance</span></div>
+          <span class="hd">Owner controls — your wallet, on-chain (anytime)</span>
+          <div><span class="tool">setCap</span>(newCap) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># raise / lower the lifetime budget</span></div>
+          <div><span class="tool">setMaxPerSpend</span>(limit) &nbsp;&nbsp;<span class="c"># the per-transaction cap</span></div>
+          <div><span class="tool">setDailyLimit</span>(limit) &nbsp;&nbsp;<span class="c"># rolling 24h velocity cap</span></div>
+          <div><span class="tool">revoke</span>() <span class="c">/</span> <span class="tool">withdraw</span>(to,amt) <span class="c"># freeze the agent / pull funds out</span></div>
+        </div>
+        <p class="body rv d4" style="font-weight:600">Every limit is an <b>owner-only on-chain call</b> — the agent can spend, but only the human can change what it's allowed to do. The MCP tools are the easy path; the contract is the source of truth.</p>
+      </div>
+    </section>
+
+    <!-- ░ 16 · CLOSE ░ -->
+    <section class="slide g-black" aria-label="The ask">
+      <div class="star" style="width:clamp(60px,8vw,120px);height:clamp(60px,8vw,120px);background:var(--yellow);top:10%;right:9%;transform:rotate(-12deg);border-color:var(--white)"></div>
+      <div class="stack">
+        <span class="label l-pink rv d1">16 — The ask</span>
+        <div class="close-card rv d2">
+          <h2 class="xl" style="color:var(--white)">Make it safe<br />to let AI run<br /><span style="color:var(--yellow)">the money.</span></h2>
+        </div>
+        <p class="md rv d3" style="color:var(--cream);font-weight:700;text-transform:none;max-width:28ch">Spawn an AI agent with a wallet, identity, and on-chain spending limit — in one command.</p>
+        <p class="tagline rv d4" style="color:var(--white)">StableSettle · budget-capped AI treasuries on Arc</p>
+      </div>
+    </section>
+
+    <div class="counter" aria-hidden="true">01 / 16</div>
+    <nav class="nav" aria-label="Slide navigation"><button id="prev" aria-label="Previous">‹</button><button id="next" aria-label="Next">›</button></nav>
+
+    <script>
+      // BlockFrame controller — instant display toggle, keyboard + touch + buttons.
+      const slides = [...document.querySelectorAll('.slide')];
+      const counter = document.querySelector('.counter');
+      let i = 0;
+      function show(n) {
+        i = Math.max(0, Math.min(slides.length - 1, n));
+        slides.forEach((s, k) => s.classList.toggle('active', k === i));
+        counter.textContent = `${String(i + 1).padStart(2, '0')} / ${slides.length}`;
+      }
+      function next() { show(i + 1); }
+      function prev() { show(i - 1); }
+      document.getElementById('next').addEventListener('click', next);
+      document.getElementById('prev').addEventListener('click', prev);
+      window.addEventListener('keydown', (e) => {
+        if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); next(); }
+        if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); prev(); }
+        if (e.key === 'Home') show(0);
+        if (e.key === 'End') show(slides.length - 1);
+      });
+      let x0 = null;
+      window.addEventListener('touchstart', (e) => (x0 = e.touches[0].clientX), { passive: true });
+      window.addEventListener('touchend', (e) => {
+        if (x0 === null) return;
+        const dx = x0 - e.changedTouches[0].clientX;
+        if (Math.abs(dx) > 50) (dx > 0 ? next() : prev());
+        x0 = null;
+      }, { passive: true });
+      show(0);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1042 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "settlementToken",
+        "type": "address",
+        "internalType": "contract IERC20"
+      },
+      {
+        "name": "human",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "agent",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "cap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "proof",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "AGENT_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "DAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "DEFAULT_ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "FEE_ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HUMAN_OWNER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_FEE_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "active",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "agentName",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "balance",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "budgetCap",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "budgetRemaining",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "dailyLimit",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "dailyRemaining",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "feeBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "feeRecipient",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "fund",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getRoleAdmin",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "grantRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "hasRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "health",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "capRemaining",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "todayRemaining",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "humanProof",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxPerSpend",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "reinstate",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renounceRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "callerConfirmation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revoke",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setCap",
+    "inputs": [
+      {
+        "name": "newCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDailyLimit",
+    "inputs": [
+      {
+        "name": "newLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setFee",
+    "inputs": [
+      {
+        "name": "newFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMaxPerSpend",
+    "inputs": [
+      {
+        "name": "newLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "spend",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "spent",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "spentToday",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "supportsInterface",
+    "inputs": [
+      {
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "token",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "windowStart",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CapChanged",
+    "inputs": [
+      {
+        "name": "oldCap",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newCap",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DailyLimitChanged",
+    "inputs": [
+      {
+        "name": "oldLimit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newLimit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeeChanged",
+    "inputs": [
+      {
+        "name": "feeBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Funded",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MaxPerSpendChanged",
+    "inputs": [
+      {
+        "name": "oldLimit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newLimit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Reinstated",
+    "inputs": [
+      {
+        "name": "by",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Revoked",
+    "inputs": [
+      {
+        "name": "by",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleAdminChanged",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleGranted",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleRevoked",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SpendFeeTaken",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "fee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Spent",
+    "inputs": [
+      {
+        "name": "agent",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "spentTotal",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remaining",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VaultDeployed",
+    "inputs": [
+      {
+        "name": "human",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "agent",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "budgetCap",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "agentName",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "humanProof",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Withdrawn",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AccessControlBadConfirmation",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AccessControlUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "neededRole",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AgentActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AgentRevoked",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BudgetExceeded",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "remaining",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CapBelowSpent",
+    "inputs": [
+      {
+        "name": "newCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "spent",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DailyLimitExceeded",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingToday",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "FeeRecipientZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FeeTooHigh",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "max",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsufficientBalance",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PerSpendLimitExceeded",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAmount",
+    "inputs": []
+  }
+]

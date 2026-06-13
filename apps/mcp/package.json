@@ -1,0 +1,34 @@
+{
+  "name": "@stablesettle/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "stablesettle-mcp": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "start:http": "MCP_TRANSPORT=http bun run src/index.ts",
+    "register-secret": "bun run scripts/register-secret.ts",
+    "doctor": "bun run scripts/doctor.ts",
+    "e2e:local": "bun run scripts/e2e-local.ts",
+    "x402:seller": "bun run scripts/x402-seller.ts",
+    "x402:e2e": "bun run scripts/x402-e2e.ts",
+    "x402:live": "bun run scripts/x402-live.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@circle-fin/developer-controlled-wallets": "^7.0.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@namestone/namestone-sdk": "^0.2.15",
+    "@stablesettle/shared": "workspace:*",
+    "@worldcoin/idkit-core": "^1.2.2",
+    "viem": "^2.21.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "typescript": "^5.6.2"
+  }
+}

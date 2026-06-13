@@ -1,0 +1,1013 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "settlementToken",
+        "type": "address",
+        "internalType": "contract IERC20"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "DEFAULT_ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "DUTIES_ANOMALY_MULTIPLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MERCHANT_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ORACLE_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "clearAnomaly",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "createOrder",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "refundWindowSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "estimatedDuties",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "split",
+        "type": "tuple",
+        "internalType": "struct StableSettleEscrow.Split",
+        "components": [
+          {
+            "name": "merchant",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "creator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "platform",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "customer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "merchantAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "refundReserve",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "creatorCommission",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "platformFee",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "productName",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "customerCountry",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "defaultToken",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "fundOrder",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getOrder",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct StableSettleEscrow.Order",
+        "components": [
+          {
+            "name": "totalAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "deliveredAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "refundWindowSeconds",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "estimatedDuties",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "actualDuties",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "state",
+            "type": "uint8",
+            "internalType": "enum StableSettleEscrow.OrderState"
+          },
+          {
+            "name": "settled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "anomalyFlagged",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "split",
+            "type": "tuple",
+            "internalType": "struct StableSettleEscrow.Split",
+            "components": [
+              {
+                "name": "merchant",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "creator",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "platform",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "customer",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "merchantAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "refundReserve",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "creatorCommission",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "platformFee",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRoleAdmin",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "grantRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "hasRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "markDelivered",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "orderExists",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "raiseDispute",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "release",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renounceRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "callerConfirmation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "reportActualDuties",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actualDuties",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resolveDispute",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "toCustomer",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toMerchant",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toCreator",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toPlatform",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "supportsInterface",
+    "inputs": [
+      {
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "ActualDutiesReported",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "estimatedDuties",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "actualDuties",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "anomalyFlagged",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AnomalyCleared",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clearedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Delivered",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "deliveredAt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DisputeRaised",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "raisedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DisputeResolved",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "toCustomer",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toMerchant",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toCreator",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toPlatform",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OrderCreated",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "refundWindowSeconds",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "estimatedDuties",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "creator",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "platform",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "customer",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "merchantAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "refundReserve",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "creatorCommission",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "platformFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "productName",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "customerCountry",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OrderFunded",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "funder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Released",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "merchantAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "refundReserve",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "creatorCommission",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "platformFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleAdminChanged",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleGranted",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleRevoked",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AccessControlBadConfirmation",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AccessControlUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "neededRole",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AnomalyFlaggedRelease",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidState",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotFlagged",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OrderAlreadyExists",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OrderNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RefundWindowNotElapsed",
+    "inputs": [
+      {
+        "name": "nowTs",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "releasableAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SplitMismatch",
+    "inputs": [
+      {
+        "name": "sum",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAmount",
+    "inputs": []
+  }
+]

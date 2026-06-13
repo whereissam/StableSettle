@@ -1,0 +1,22 @@
+{
+  "live-x402-demo": {
+    "name": "live-x402-demo",
+    "ensName": "live-x402-demo.stablesettle.eth",
+    "vault": "0x75d824d6be7ea0c41325914ae6d6d38d13597b9e",
+    "agentAddress": "0x0fc465e6730010bcd232b4f0759546de9fba1ef9",
+    "circleWalletId": "14cc3a0f-759d-503b-ba9f-1eb213387c48",
+    "human": "0x2b44f71B6EB9f2F981B08EA9Af582157075B34B9",
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "createdTx": "0xd63ddd67097bc5424783078d21bd8d1689c35f5484350efb00ee7336edc8836c"
+  },
+  "judge-demo": {
+    "name": "judge-demo",
+    "ensName": "judge-demo.stablesettle.eth",
+    "vault": "0x0ee9d4e62aff168e1d8dac448a77cdafc9932396",
+    "agentAddress": "0x64dd073700008cf173ed070fc45593be53f8f05a",
+    "circleWalletId": "2a819827-34fb-5d97-8b04-6213d6cf1097",
+    "human": "0x2b44f71B6EB9f2F981B08EA9Af582157075B34B9",
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "createdTx": "0x075978d367fd25ebf9c5a8969c000265b3de82e6e454cc3cea20045758da910f"
+  }
+}

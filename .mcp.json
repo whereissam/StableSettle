@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "stablesettle": {
+      "command": "bun",
+      "args": ["run", "apps/mcp/src/index.ts"],
+      "env": {}
+    }
+  }
+}

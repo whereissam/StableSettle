@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StableSettle · World ID verify</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 640px; margin: 6vh auto; padding: 0 20px; }
+      h1 { font-size: 1.3rem; }
+      label { display: block; font-weight: 600; margin: 14px 0 4px; }
+      input { width: 100%; padding: 8px; box-sizing: border-box; }
+      button { margin-top: 18px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+      textarea { width: 100%; height: 160px; margin-top: 12px; font-family: ui-monospace, monospace; font-size: 12px; }
+      .hint { color: #888; font-size: 13px; }
+      .ok { color: #16a34a; font-weight: 600; }
+      .err { color: #dc2626; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <h1>🌍 Human-back an agent with World ID</h1>
+    <p class="hint">
+      Verify a real human authorized this agent. Scan the QR with the
+      <a href="https://simulator.worldcoin.org" target="_blank" rel="noreferrer">World ID simulator</a>
+      (staging) or the World App, then copy the proof JSON into <code>spawn_agent</code>'s
+      <code>worldIdProof</code> argument.
+    </p>
+
+    <label for="app">App ID (<code>app_staging_…</code>)</label>
+    <input id="app" placeholder="app_staging_…" />
+    <label for="action">Action</label>
+    <input id="action" value="authorize-agent" />
+    <label for="signal">Signal — the human owner's address (must match <code>spawn_agent</code>)</label>
+    <input id="signal" placeholder="0x… (your DEPLOYER address)" />
+
+    <button id="go">Verify with World ID</button>
+    <p id="status"></p>
+    <textarea id="out" readonly placeholder="The proof JSON appears here after a successful verification."></textarea>
+
+    <script type="module">
+      // idkit-standalone is the vanilla-JS build of IDKit (no React needed for this page).
+      import { IDKit } from 'https://esm.sh/@worldcoin/idkit-standalone@1.5.0'
+
+      const $ = (id) => document.getElementById(id)
+      const params = new URLSearchParams(location.search)
+      for (const k of ['app', 'action', 'signal']) {
+        const v = params.get(k) ?? params.get(k === 'app' ? 'app_id' : k)
+        if (v) $(k).value = v
+      }
+      const status = $('status')
+
+      $('go').addEventListener('click', async () => {
+        const app_id = $('app').value.trim()
+        const action = $('action').value.trim()
+        const signal = $('signal').value.trim() || undefined
+        if (!app_id || !action) { status.textContent = 'App ID and action are required.'; status.className = 'err'; return }
+        status.textContent = 'Opening World ID…'; status.className = 'hint'
+        try {
+          await IDKit.init({ app_id, action, signal, verification_level: 'orb' })
+          const result = await IDKit.open()
+          $('out').value = JSON.stringify(result, null, 2)
+          status.textContent = '✓ Verified — copy the JSON above into spawn_agent worldIdProof.'
+          status.className = 'ok'
+        } catch (e) {
+          status.textContent = 'Verification failed: ' + (e?.message ?? e)
+          status.className = 'err'
+        }
+      })
+    </script>
+  </body>
+</html>

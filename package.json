@@ -1,0 +1,18 @@
+{
+  "name": "stablesettle",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["packages/shared", "apps/web", "apps/api", "apps/indexer", "apps/mcp"],
+  "scripts": {
+    "dev:web": "bun run --filter='stablesettle-web' dev",
+    "dev:api": "bun run --filter='@stablesettle/api' dev",
+    "dev:indexer": "bun run --filter='@stablesettle/indexer' dev",
+    "dev:mcp": "bun run --filter='@stablesettle/mcp' dev",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "test:contracts": "cd packages/contracts && forge test",
+    "deploy:arc": "cd packages/contracts && set -a && . ./.env && set +a && forge script script/Deploy.s.sol:Deploy --rpc-url \"$ARC_TESTNET_RPC_URL\" --private-key \"$PRIVATE_KEY\" --broadcast",
+    "deploy:arc:real": "cd packages/contracts && set -a && . ./.env && set +a && USDC_ADDRESS=0x3600000000000000000000000000000000000000 EURC_ADDRESS=0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a forge script script/Deploy.s.sol:Deploy --rpc-url \"$ARC_TESTNET_RPC_URL\" --private-key \"$PRIVATE_KEY\" --broadcast",
+    "typecheck": "bun run --filter='*' typecheck"
+  }
+}
