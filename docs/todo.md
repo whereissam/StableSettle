@@ -166,3 +166,87 @@ So nobody re-adds them by accident:
 - More than 3 sponsors → committed = Arc + Chainlink + one wallet; LI.FI/1inch is stretch only.
 - More than 6 order states → 6 states + one `anomalyFlagged` bool.
 - Multiple settlement templates → one fixed $100 split.
+
+---
+
+# AGENT VAULT — the firewall pivot (added 2026-06-13)
+
+Since the escrow MVP shipped, the project's hero became **`AgentVault`** — the on-chain spending
+firewall for AI agents. **Thesis: bound the *outcome*, don't trust the *intent* ("controlled
+autonomy" — 把無限自主權壓縮成受控自主權).**
+
+**Built this session (runs end to end, live on Arc):**
+- `AgentVault.sol` — lifetime cap + per-tx cap + 24h velocity limit + **withdraw locked to a fixed
+  cold `ownerPayout`** + **opt-in recipient allowlist** + on-chain `health()` + capped non-bricking
+  fee + ENS/World ID provenance. **56 AgentVault tests / 92 repo-wide.**
+- Owner resolved from **server config, never a tool argument** (no prompt-injection takeover).
+- MCP tools: `spawn_agent` (cap/maxPerSpend/dailyLimit/allowlist/fund/gas) · `fund_agent` ·
+  `topup_gas` · `agent_pay` · `agent_pay_x402` · `get_agent`. Offline e2e 15/15.
+
+## Now — highest-ROI before submission (presentation, NOT more contract layers)
+- [ ] **Pitch slide 1 rewrite** around *controlled autonomy* + the AI-vs-human asymmetry
+  (machine speed, no chargeback, prompt-injection amplification → why AI needs *harder* limits).
+- [ ] **Polish + record the demo.** Money shot = prompt-inject the agent to pay an attacker →
+  `RecipientNotAllowed` reverts even though amount/budget/daily are all fine.
+- [ ] **Tighten README/deck** on "bound the outcome, don't trust the intent."
+- [ ] Host the web dashboard at a public URL (carried over — only if keeping the read-only dashboard).
+
+## Future backlog — recorded, NOT hackathon scope
+Honest verdicts so these are captured without becoming a reason not to ship.
+
+**Worth doing later (on-thesis, contained):**
+- [ ] **Spend audit memo** — optional `memo`/`reasonHash` on `spend`, emitted in the event. Frame as
+  a *human audit trail* (what the agent claimed it bought), **not** proof of honest intent — a
+  compromised agent fakes the memo too. ~30 min; useful for the dashboard "I paid, but where/why" story.
+- [ ] **ENS-profile-sourced allowlist** — owner publishes approved recipients in ENS text records; the
+  vault/UI reads them. Composes identity + policy; owner-only updates. (Roadmap line on the deck.)
+- [x] **Per-user owner binding (non-custodial)** — ✅ **BUILT.** Owner/payout = the connecting user's
+  OWN address (not the operator). See the "Multi-user → prod" section below. (We landed on
+  *non-custodial* — owner = the user's own wallet — which is stronger than the earlier "custodial"
+  idea: the operator is never the owner, so it can't withdraw, raise the cap, or redirect funds.)
+- [ ] **Pre-spend compliance screening** (production) — sanctioned-address / AML check via Circle or
+  Chainlink before a spend. Off-chain layer → keep it an *optional* gate; the on-chain allowlist stays
+  the trustless path.
+
+**Explicitly NOT building (anti-scope-creep — these are traps):**
+- ❌ **Verifiable reasoning / intent ZK-proof** — category error vs the thesis. A self-generated
+  reasoning hash proves nothing; we bound outcomes, not intent. Don't dilute the core claim.
+- ❌ **AI BNPL / credit lines** — AI has no repayment incentive → optimizes for max leverage + default.
+  Pre-funded + micropayments (x402) is the right model. Only revisit as collateralized / reputation-backed,
+  as an opt-in advanced feature — never the main line.
+- ❌ **Oracle-driven blocklist / reputation system** — off-chain trust; contradicts "no off-chain gate."
+  The opt-in allowlist is the on-chain answer.
+- ❌ **Liquidity / solvency guardrails** — N/A for a pre-funded vault; the cap already bounds it.
+
+---
+
+## Multi-user → prod: you rebuild NOTHING (added 2026-06-13)
+
+The engine is done and production-grade. Going multi-user is a **thin wrapper on top, not a rebuild** —
+proven by the fact that the per-user owner binding below **slotted in without touching the contract and
+without breaking the demo** (typecheck + `e2e:local` still green).
+
+**✅ Already built — carries straight to prod:**
+- `AgentVault` firewall (92 tests), the MCP tools, the Circle agent wallet, the escrow engine.
+- **Per-user owner binding (non-custodial):**
+  - `apps/mcp/src/users.ts` — token → owner-address registry (tokens stored **hashed**).
+  - `http.ts` — per-user auth: a request's bearer token resolves to a `ServerContext`; the session's
+    server is bound to it. Shared admin token + stdio paths unchanged → **demo-safe**.
+  - `index.ts` — owner resolution: **session user's address → `OWNER_ADDRESS` → deployer.**
+    `ownerPayout` = the user's own address, so a malicious operator can't redirect a withdrawal.
+    Per-user spawns can't spend the operator's treasury (`fund` is admin-only).
+  - Provision: `bun run --filter='@stablesettle/mcp' register-user <token> <userId> <ownerAddress>`.
+  - **Result:** the operator is **never the owner** — it only holds the agent's bounded spend wallet.
+    Even a fully compromised operator can't drain a user. (The judge-proof trust answer.)
+
+**Left for prod — additive, a wrapper (NOT a rebuild):**
+- [ ] **Signup surface** — a small web page / API that issues a per-user token + registers their owner
+  address. (The `register-user` CLI is the manual version of this.)
+- [ ] **User wallet widget** — a one-time Dynamic or Circle *embedded* wallet (passkey, **Arc supported ✓**)
+  so the user gets an owner address with no seed. The address plugs into `register-user`; nothing else changes.
+- [ ] **Ops** — back up the Circle entity-secret recovery file (`~/.circle/`) to a vault/KMS; host the
+  server (tunnel → domain); add rate limits. Config, not code.
+
+> None of the "left for prod" items touch the contract, the firewall, the MCP tools, or the agent wallet.
+> They wrap an engine that already works. **Agent signer stays Circle** (swapping to Dynamic gains nothing
+> and risks the build); Dynamic's value is the *user's owner wallet*, which plugs into the binding above.

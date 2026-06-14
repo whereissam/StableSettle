@@ -4,9 +4,8 @@ import { cn } from '@/lib/utils'
 import { USDC_IS_MOCK, isConfigured } from '@/lib/contract'
 
 const NAV = [
-  { to: '/dashboard', label: 'Dashboard' },
   { to: '/agents', label: 'Agent Vaults' },
-  { to: '/demo', label: 'Demo mode' },
+  { to: '/dashboard', label: 'Dashboard' },
 ]
 
 function NavLink({ to, label, pathname }: { to: string; label: string; pathname: string }) {

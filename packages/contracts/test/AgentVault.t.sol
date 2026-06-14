@@ -44,6 +44,7 @@ contract AgentVaultTest is Test {
     address internal agent = makeAddr("agent"); // the AI agent wallet
     address internal payee = makeAddr("payee"); // a recipient the agent pays
     address internal protocol = makeAddr("protocol"); // protocol fee recipient
+    address internal payout = makeAddr("payout"); // the cold withdraw destination (distinct from human)
     address internal stranger = makeAddr("stranger");
 
     string internal constant ENS = "trader-bot.stablesettle.eth";
@@ -51,7 +52,9 @@ contract AgentVaultTest is Test {
 
     function setUp() public {
         usdc = new MockUSDC();
-        vault = new AgentVault(IERC20(address(usdc)), human, agent, CAP, ENS, PROOF);
+        // Deploy with a cold payout address distinct from `human` so the withdraw-destination
+        // invariant is actually exercised (funds can only ever land at `payout`).
+        vault = new AgentVault(IERC20(address(usdc)), human, agent, CAP, ENS, PROOF, payout);
 
         // Human holds funds and approves the vault up front.
         usdc.mint(human, 1_000_000e6);
@@ -82,16 +85,25 @@ contract AgentVaultTest is Test {
 
     function test_constructor_rejectsZeroAddress() public {
         vm.expectRevert(AgentVault.ZeroAddress.selector);
-        new AgentVault(IERC20(address(0)), human, agent, CAP, ENS, PROOF);
+        new AgentVault(IERC20(address(0)), human, agent, CAP, ENS, PROOF, payout);
         vm.expectRevert(AgentVault.ZeroAddress.selector);
-        new AgentVault(IERC20(address(usdc)), address(0), agent, CAP, ENS, PROOF);
+        new AgentVault(IERC20(address(usdc)), address(0), agent, CAP, ENS, PROOF, payout);
         vm.expectRevert(AgentVault.ZeroAddress.selector);
-        new AgentVault(IERC20(address(usdc)), human, address(0), CAP, ENS, PROOF);
+        new AgentVault(IERC20(address(usdc)), human, address(0), CAP, ENS, PROOF, payout);
     }
 
     function test_constructor_rejectsZeroCap() public {
         vm.expectRevert(AgentVault.ZeroAmount.selector);
-        new AgentVault(IERC20(address(usdc)), human, agent, 0, ENS, PROOF);
+        new AgentVault(IERC20(address(usdc)), human, agent, 0, ENS, PROOF, payout);
+    }
+
+    function test_constructor_setsOwnerPayout() public view {
+        assertEq(vault.ownerPayout(), payout);
+    }
+
+    function test_constructor_ownerPayoutDefaultsToHumanWhenZero() public {
+        AgentVault v = new AgentVault(IERC20(address(usdc)), human, agent, CAP, ENS, PROOF, address(0));
+        assertEq(v.ownerPayout(), human);
     }
 
     // ── fund ──────────────────────────────────────────────────────────────────
@@ -463,18 +475,22 @@ contract AgentVaultTest is Test {
 
     // ── withdraw ──────────────────────────────────────────────────────────────────
 
-    function test_withdraw_returnsFundsToHuman() public {
+    function test_withdraw_sendsOnlyToOwnerPayout() public {
         _fund(CAP);
+        // Even the human owner cannot name a destination — funds land at ownerPayout, never at `human`.
         vm.prank(human);
-        vault.withdraw(human, 2_000e6);
+        vault.withdraw(2_000e6);
         assertEq(usdc.balanceOf(address(vault)), CAP - 2_000e6);
+        assertEq(usdc.balanceOf(payout), 2_000e6, "funds must go to the cold payout address");
+        // human funded the vault with CAP and received none of the withdrawal back.
+        assertEq(usdc.balanceOf(human), 1_000_000e6 - CAP, "human must NOT receive the withdrawal");
     }
 
     function test_withdraw_moreThanBalance_reverts() public {
         _fund(100e6);
         vm.prank(human);
         vm.expectRevert(abi.encodeWithSelector(AgentVault.InsufficientBalance.selector, 500e6, 100e6));
-        vault.withdraw(human, 500e6);
+        vault.withdraw(500e6);
     }
 
     function test_withdraw_onlyHuman() public {
@@ -484,7 +500,111 @@ contract AgentVaultTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, role)
         );
-        vault.withdraw(stranger, 1e6);
+        vault.withdraw(1e6);
+    }
+
+    /// @notice The core anti-theft guarantee: a fully compromised owner key cannot redirect funds.
+    ///         Whoever holds HUMAN_OWNER_ROLE can only ever move money to the fixed cold address —
+    ///         so a leaked key (or a withdraw triggered by a prompt-injected agent) drains to safety.
+    function test_withdraw_compromisedOwnerKeyCannotRedirect() public {
+        _fund(CAP);
+        // The attacker has stolen the owner key and calls withdraw. There is no destination arg to
+        // abuse: the funds still land at ownerPayout (the legitimate cold address), not anywhere else.
+        vm.prank(human); // simulates the holder of the (stolen) owner key
+        vault.withdraw(CAP);
+        assertEq(usdc.balanceOf(payout), CAP, "withdrawal is forced home to ownerPayout");
+        assertEq(usdc.balanceOf(stranger), 0, "attacker receives nothing");
+        assertEq(usdc.balanceOf(address(vault)), 0);
+    }
+
+    // ── recipient allowlist ─────────────────────────────────────────────────────────
+
+    function test_allowlist_defaultsOff() public {
+        assertFalse(vault.allowlistEnabled());
+        // With the allowlist off, the agent can pay anyone (subject only to the budget).
+        _fund(CAP);
+        vm.prank(agent);
+        vault.spend(stranger, 100e6);
+        assertEq(usdc.balanceOf(stranger), 100e6);
+    }
+
+    function test_allowlist_allowedRecipient_pays() public {
+        _fund(CAP);
+        vm.startPrank(human);
+        vault.setAllowlistEnabled(true);
+        vault.setAllowed(payee, true);
+        vm.stopPrank();
+
+        vm.prank(agent);
+        vault.spend(payee, 100e6);
+        assertEq(usdc.balanceOf(payee), 100e6);
+    }
+
+    function test_allowlist_notAllowed_reverts_evenUnderBudget() public {
+        _fund(CAP);
+        vm.prank(human);
+        vault.setAllowlistEnabled(true);
+
+        // Amount is tiny, budget is full, no daily limit — yet it reverts purely on the destination.
+        vm.prank(agent);
+        vm.expectRevert(abi.encodeWithSelector(AgentVault.RecipientNotAllowed.selector, stranger));
+        vault.spend(stranger, 1e6);
+        assertEq(vault.spent(), 0, "a blocked spend must not move the budget");
+    }
+
+    function test_allowlist_agentCannotEdit() public {
+        bytes32 ownerRole = vault.HUMAN_OWNER_ROLE();
+        vm.startPrank(agent);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, agent, ownerRole)
+        );
+        vault.setAllowlistEnabled(true);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, agent, ownerRole)
+        );
+        vault.setAllowed(agent, true);
+        vm.stopPrank();
+    }
+
+    function test_allowlist_toggleOff_restoresOpenSpend() public {
+        _fund(CAP);
+        vm.startPrank(human);
+        vault.setAllowlistEnabled(true);
+        vm.stopPrank();
+
+        vm.prank(agent);
+        vm.expectRevert(abi.encodeWithSelector(AgentVault.RecipientNotAllowed.selector, stranger));
+        vault.spend(stranger, 1e6);
+
+        vm.prank(human);
+        vault.setAllowlistEnabled(false);
+        vm.prank(agent);
+        vault.spend(stranger, 1e6); // now allowed again
+        assertEq(usdc.balanceOf(stranger), 1e6);
+    }
+
+    function test_allowlist_batch_setsMany() public {
+        _fund(CAP);
+        address other = makeAddr("other");
+        address[] memory list = new address[](2);
+        list[0] = payee;
+        list[1] = other;
+        vm.startPrank(human);
+        vault.setAllowlistEnabled(true);
+        vault.setAllowedBatch(list, true);
+        vm.stopPrank();
+
+        assertTrue(vault.allowedRecipients(payee));
+        assertTrue(vault.allowedRecipients(other));
+        vm.prank(agent);
+        vault.spend(other, 50e6);
+        assertEq(usdc.balanceOf(other), 50e6);
+    }
+
+    function test_setAllowed_rejectsZeroAddress() public {
+        vm.prank(human);
+        vm.expectRevert(AgentVault.ZeroAddress.selector);
+        vault.setAllowed(address(0), true);
     }
 
     // ── protocol fee ──────────────────────────────────────────────────────────────
@@ -547,7 +667,7 @@ contract AgentVaultTest is Test {
     function test_spend_doesNotBrickWhenFeeRecipientReverts() public {
         // A hostile/blacklisted fee recipient must never freeze the agent's core function.
         BlacklistToken bt = new BlacklistToken();
-        AgentVault v = new AgentVault(IERC20(address(bt)), human, agent, CAP, ENS, PROOF);
+        AgentVault v = new AgentVault(IERC20(address(bt)), human, agent, CAP, ENS, PROOF, payout);
         bt.mint(human, 1_000_000e6);
         vm.prank(human);
         bt.approve(address(v), type(uint256).max);

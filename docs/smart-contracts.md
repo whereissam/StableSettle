@@ -167,7 +167,7 @@ Each of the six MCP tools maps to the contract:
 
 | MCP tool | Contract touchpoint | What the server adds around it |
 |---|---|---|
-| `spawn_agent` | **deploys** `AgentVault` (constructor) + optional `setMaxPerSpend` | creates the isolated **Circle** wallet, verifies **World ID**, issues the **ENS** subname; optional per-tx cap + custom owner |
+| `spawn_agent` | **deploys** `AgentVault` (constructor, incl. `ownerPayout`) + `setDailyLimit` / optional `setMaxPerSpend` | creates the isolated **Circle** wallet, verifies **World ID**, issues the **ENS** subname; applies a default 24h velocity limit; owner + payout come from server config, never a tool argument |
 | `agent_pay` | calls **`spend()`** (agent wallet signs via Circle) | validates the recipient address, converts dollars → USDC units |
 | `agent_pay_x402` | calls **`spend()`** to pay an x402 toll | runs the HTTP 402 round-trip, enforces a willingness ceiling, returns the purchased data |
 | `fund_agent` | calls **`fund()`** (deployer approves + funds) | tops up the vault treasury; checks the deployer balance first |
@@ -218,7 +218,7 @@ sequenceDiagram
 - **Owner liveness:** `revoke()` and `withdraw()` are always available to the human.
 - **Custom errors:** `BudgetExceeded` · `DailyLimitExceeded` · `InsufficientBalance` · `AgentRevoked` · `CapBelowSpent` · `FeeTooHigh` · `FeeRecipientZero` · `ZeroAddress` · `ZeroAmount`.
 
-**Tests:** `packages/contracts/test/AgentVault.t.sol` — **40 passing**, covering the over-budget revert, the daily-limit revert + window reset, the `health()` states, underfunded vault, cap changes, revoke/reinstate, withdraw, the value-conserving fee, the non-bricking fee (hostile recipient), and access control. Verified end-to-end against a live node by `bun run --filter='@stablesettle/mcp' e2e:local`.
+**Tests:** `packages/contracts/test/AgentVault.t.sol` — **56 passing**, covering the over-budget revert, the daily-limit revert + window reset, the `health()` states, underfunded vault, cap changes, revoke/reinstate, the withdraw-only-to-`ownerPayout` lock (including a compromised-owner-key case), the recipient allowlist (not-allowed reverts even under budget; agent can't edit it), the value-conserving fee, the non-bricking fee (hostile recipient), and access control. Verified end-to-end against a live node by `bun run --filter='@stablesettle/mcp' e2e:local`.
 
 > ⚠️ Unaudited testnet code. These properties raise the floor; a mainnet launch needs a professional audit.
 
@@ -332,4 +332,4 @@ You **cannot** fast-forward `block.timestamp` on a live testnet, so the demo use
 
 ## Tests
 
-`packages/contracts/test/StableSettleEscrow.t.sol` — **35 passing**, plus a stateful invariant run: all three scenarios end-to-end, role/state gating, double-spend reverts, multi-currency (EURC) settlement, and the value-conservation invariant. **82 tests pass repo-wide** (`forge test`).
+`packages/contracts/test/StableSettleEscrow.t.sol` — **35 passing**, plus a stateful invariant run: all three scenarios end-to-end, role/state gating, double-spend reverts, multi-currency (EURC) settlement, and the value-conservation invariant. **92 tests pass repo-wide** (`forge test`).

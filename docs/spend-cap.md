@@ -86,14 +86,15 @@ flowchart TD
 - **`onlyRole(AGENT_ROLE)` + Solidity `revert`** — there is no API to skip, no backend to bypass, no co-signer to phish. A stolen agent key, a hallucinating model, or a prompt injection all hit the same wall.
 - **Checks-effects-interactions + `nonReentrant`** — `spent` is incremented *before* the transfer, so a re-entrant call can't double-spend.
 - **Cap checked before balance** — the agent gets the meaningful `BudgetExceeded` error, not a generic transfer failure.
-- **Separation of powers** — only the **human owner** (a different role) can `setCap` / `setMaxPerSpend` / `setDailyLimit` / `revoke` / `withdraw`. The agent can spend; it can never change its own limit or pull funds out.
+- **Separation of powers** — only the **human owner** (a different role) can `setCap` / `setMaxPerSpend` / `setDailyLimit` / `setAllowlistEnabled` / `setAllowed` / `revoke` / `withdraw`. The agent can spend; it can never change its own limit, edit the allowlist, or pull funds out.
+- **Recipient allowlist (opt-in)** — with the allowlist on, `spend()` reverts `RecipientNotAllowed(to)` unless the destination is approved. A prompt-injected agent paying an attacker reverts even when the amount, budget, and daily limit are all fine.
 - **The agent holds no raw key** — its wallet is a Circle developer-controlled (MPC) wallet, and it holds only gas dust, never the treasury.
 
 ---
 
 ## Proof
 
-- **Tests:** `packages/contracts/test/AgentVault.t.sol` — 46 tests cover the over-budget revert, the per-transaction cap, the daily-limit revert + window reset, revoke/reinstate, withdraw, and access control. (`forge test` → 82 passing repo-wide.)
+- **Tests:** `packages/contracts/test/AgentVault.t.sol` — 56 tests cover the over-budget revert, the per-transaction cap, the daily-limit revert + window reset, revoke/reinstate, the withdraw-only-to-`ownerPayout` lock (incl. a compromised owner key), the recipient allowlist (not-allowed reverts even under budget; agent can't edit it), and access control. (`forge test` → 92 passing repo-wide.)
 - **Live on Arc testnet:** a real over-cap spend, mined as a Failed transaction, decodes on the explorer to `PerSpendLimitExceeded(1500000, 1000000)` — [tx `0xc0d8b3…`](https://testnet.arcscan.app/tx/0xc0d8b3e5a3ab4aab483b9051cbc70869032fa2f191c44e14803c1511061cc27d). Regenerate one anytime with `bun --filter='@stablesettle/mcp' run x402:e2e` (offline) or `apps/mcp/scripts/revert-proof.ts` (live).
 
 ---
@@ -104,7 +105,8 @@ flowchart TD
 |---|---|---|
 | Lifetime budget | `spawn_agent budget=5000` | `setCap(newCap)` |
 | Per-transaction cap | `spawn_agent maxPerSpend=500` | `setMaxPerSpend(limit)` |
-| 24h velocity cap | — | `setDailyLimit(limit)` |
-| Freeze / drain | — | `revoke()` · `withdraw(to, amount)` |
+| 24h velocity cap | applied by default (`spawn_agent dailyLimit=1000` to override; `0` disables) | `setDailyLimit(limit)` |
+| Recipient allowlist | `spawn_agent allowlist=[0x…]` (turns it on + approves them) | `setAllowlistEnabled(bool)` · `setAllowed(addr, bool)` |
+| Freeze / drain | — | `revoke()` · `withdraw(amount)` → always to the fixed `ownerPayout` |
 
 See [`docs/smart-contracts.md`](smart-contracts.md) for the full contract reference.

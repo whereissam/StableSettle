@@ -37,6 +37,7 @@ const { vault } = await deployVault({
   capUnits: 2_000_000n, // $2 lifetime cap — plenty of budget, so only the per-tx cap can block this
   agentName: 'revert-proof.stablesettle.eth',
   humanProof: `0x${'0'.repeat(64)}`,
+  payout: account.address,
 })
 console.log('vault:', vault)
 

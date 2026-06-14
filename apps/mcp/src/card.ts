@@ -54,6 +54,7 @@ export function statusCard(record: AgentRecord, state: VaultState): string {
   const proofLine = state.humanProof === ZERO_PROOF ? 'not yet verified (roadmap)' : `\`${short(state.humanProof)}\``
   const perTx = state.maxPerSpend > 0n ? `$${fromUsdcUnits(state.maxPerSpend)} / tx` : 'none'
   const daily = state.dailyLimit > 0n ? `$${fromUsdcUnits(state.dailyLimit)} / 24h` : 'none'
+  const allowlist = state.allowlistEnabled ? 'ON — agent can pay only approved addresses' : 'off (agent may pay any address, within budget)'
   return [
     `## \`${record.name}\` — status`,
     '',
@@ -62,6 +63,7 @@ export function statusCard(record: AgentRecord, state: VaultState): string {
     `| **Status** | ${state.active ? 'active ✓' : 'revoked ✗'} |`,
     `| **Budget** | $${fromUsdcUnits(state.spent)} spent / $${fromUsdcUnits(state.budgetCap)} cap · $${fromUsdcUnits(state.remaining)} remaining |`,
     `| **Extra limits** | per-tx: ${perTx} · daily: ${daily} |`,
+    `| **Recipient allowlist** | ${allowlist} |`,
     `| **Vault balance** | $${fromUsdcUnits(state.balance)} USDC |`,
     `| **Agent** | ${state.agentName} · \`${short(record.agentAddress)}\` |`,
     `| **Human proof** | ${proofLine} |`,

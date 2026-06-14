@@ -9,22 +9,38 @@ import { randomUUID } from 'node:crypto'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import { hasUsers, userForToken, type ServerContext } from './users.ts'
 
 function rpcError(message: string, status: number, code = -32000): Response {
   return Response.json({ jsonrpc: '2.0', error: { code, message }, id: null }, { status })
 }
 
-/** Start the Streamable-HTTP server. `buildServer` mints a fresh MCP server per session. */
-export function startHttpServer(buildServer: () => McpServer): void {
+/** Start the Streamable-HTTP server. `buildServer` mints a fresh MCP server per session, bound to the
+ *  authenticated caller's context (so per-user sessions own their own vaults). */
+export function startHttpServer(buildServer: (ctx?: ServerContext) => McpServer): void {
   const port = Number(process.env.MCP_HTTP_PORT ?? process.env.PORT ?? 8080)
   const authToken = process.env.MCP_AUTH_TOKEN || undefined
+
+  // Resolve a request's bearer token to: rejected, admin (no ctx → config owner), or a per-user ctx
+  // (the user's own owner address). Admin token = the shared MCP_AUTH_TOKEN; per-user tokens are in the
+  // user registry. With neither configured, the server is open (local dev) — the loud warning still fires.
+  function resolveContext(req: Request): { ok: boolean; ctx?: ServerContext } {
+    const header = req.headers.get('authorization') ?? ''
+    const token = header.startsWith('Bearer ') ? header.slice(7) : ''
+    if (authToken && token === authToken) return { ok: true } // operator/admin → owner from config
+    const user = token ? userForToken(token) : undefined
+    if (user) return { ok: true, ctx: { ownerAddress: user.ownerAddress, userId: user.userId } }
+    // A token was required (admin token set or users registered) but didn't match → reject.
+    if (authToken || hasUsers()) return { ok: false }
+    return { ok: true } // fully open (no auth configured)
+  }
+
   // One transport per MCP session, keyed by the session id the SDK assigns on initialize.
   const sessions: Record<string, WebStandardStreamableHTTPServerTransport> = {}
 
   async function handleMcp(req: Request): Promise<Response> {
-    if (authToken && req.headers.get('authorization') !== `Bearer ${authToken}`) {
-      return rpcError('Unauthorized', 401, -32001)
-    }
+    const auth = resolveContext(req)
+    if (!auth.ok) return rpcError('Unauthorized', 401, -32001)
 
     // Existing session: hand the request straight to its transport (POST/GET/DELETE).
     const sid = req.headers.get('mcp-session-id') ?? undefined
@@ -54,7 +70,9 @@ export function startHttpServer(buildServer: () => McpServer): void {
     transport.onclose = () => {
       if (transport.sessionId) delete sessions[transport.sessionId]
     }
-    await buildServer().connect(transport)
+    // Bind this session's server to the authenticated caller — a per-user ctx makes their vaults
+    // owned by their own address; admin (no ctx) falls back to the configured owner.
+    await buildServer(auth.ctx).connect(transport)
     // Body already consumed above — pass it back so the transport doesn't try to re-read the stream.
     return transport.handleRequest(req, { parsedBody: body })
   }

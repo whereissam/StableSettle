@@ -21,14 +21,34 @@ if (existsSync(envFile)) {
     if (/^[A-Z0-9_]+$/.test(key) && !process.env[key]) process.env[key] = line.slice(eq + 1).trim()
   }
 }
-import { chainConfig, fromUsdcUnits, MAX_USDC_DOLLARS, toUsdcUnits } from './config.ts'
-import { deployVault, deployerAddress, fundVault, readVault, setMaxPerSpend, topUpGas, usdcBalanceOf } from './chain.ts'
+import {
+  chainConfig,
+  defaultDailyLimitBps,
+  fromUsdcUnits,
+  MAX_USDC_DOLLARS,
+  ownerAddress,
+  ownerPayoutAddress,
+  toUsdcUnits,
+} from './config.ts'
+import {
+  deployVault,
+  deployerAddress,
+  enableAllowlist,
+  fundVault,
+  readVault,
+  setDailyLimit,
+  setMaxPerSpend,
+  simulateSpend,
+  topUpGas,
+  usdcBalanceOf,
+} from './chain.ts'
 import { createAgentWallet, executeSpend } from './circle.ts'
 import { ensNameFor, registerEnsSubname, verifyHuman } from './identity.ts'
 import type { WorldIdProof } from './worldid.ts'
 import { deploymentCard, spendCard, statusCard, x402Card } from './card.ts'
 import { fetchWithX402 } from './x402.ts'
 import { getAgent, listAgents, nullifierUsed, saveAgent, type AgentRecord } from './store.ts'
+import type { ServerContext } from './users.ts'
 
 // The McpServer is built per-connection by `buildServer()` below — one per stdio process, one per
 // HTTP session — so each connection is isolated. Tool handlers are stateless (state lives on-chain
@@ -69,7 +89,7 @@ function resolveUsdc(override?: string): `0x${string}` {
  * Build a fully-configured StableSettle MCP server with all six tools registered. Called once per
  * stdio process and once per Streamable-HTTP session, so every connection gets an isolated instance.
  */
-export function buildServer() {
+export function buildServer(ctx?: ServerContext) {
   const server = new McpServer({ name: 'stablesettle', version: '0.1.0' })
 
 // ── spawn_agent ──────────────────────────────────────────────────────────────
@@ -81,7 +101,8 @@ interface SpawnArgs {
   fund?: number
   gas?: number
   maxPerSpend?: number
-  owner?: string
+  dailyLimit?: number
+  allowlist?: string[]
   worldIdProof?: string
 }
 
@@ -114,11 +135,21 @@ const spawnInput: z.ZodRawShape = {
     .finite()
     .max(MAX_USDC_DOLLARS)
     .optional()
-    .describe('Optional per-transaction ceiling in USDC dollars: no single spend may exceed this (on top of the lifetime budget). Set from the owner — applied only when `owner` is the deployer (the default).'),
-  owner: z
-    .string()
+    .describe('Optional per-transaction ceiling in USDC dollars: no single spend may exceed this (on top of the lifetime budget). Applied only when the configured owner is the deployer.'),
+  dailyLimit: z
+    .number()
+    .nonnegative()
+    .finite()
+    .max(MAX_USDC_DOLLARS)
     .optional()
-    .describe('Human-owner address that controls the vault (setCap/revoke/withdraw). Defaults to the server deployer. Pass the connecting user\'s address to make them the owner.'),
+    .describe('Optional rolling 24h velocity limit in USDC dollars: the agent cannot spend more than this per 24h window (auto-resets). Bounds how fast a hijacked agent can drain. Omit to apply the server default (a fraction of the budget); pass 0 to disable. Applied only when the configured owner is the deployer.'),
+  allowlist: z
+    .array(z.string())
+    .optional()
+    .describe('Optional list of recipient addresses the agent is allowed to pay. If provided, the on-chain allowlist is turned ON and these addresses approved — the agent can then pay ONLY these, so a prompt-injected agent cannot send to an attacker even within budget. Applied only when the configured owner is the deployer.'),
+  // NOTE: there is deliberately NO `owner` argument. The vault owner (who can setCap/revoke/withdraw)
+  // is resolved from server config (OWNER_ADDRESS), never from a tool argument — otherwise a
+  // prompt-injected model could hand ownership of the vault, and its funds, to an attacker.
   worldIdProof: z
     .string()
     .optional()
@@ -135,13 +166,38 @@ server.registerTool(
     inputSchema: spawnInput as any,
   },
   async (args: SpawnArgs) => {
-    const { name, budget, usdc, fund, gas, maxPerSpend, owner, worldIdProof } = args
+    const { name, budget, usdc, fund, gas, maxPerSpend, dailyLimit, allowlist, worldIdProof } = args
     try {
       const usdcAddr = resolveUsdc(usdc)
       const deployer = deployerAddress()
-      // The vault's human owner. Defaults to the server deployer; pass `owner` to hand control to the
-      // connecting user (they can then setCap/revoke/withdraw from their own wallet).
-      const human = owner ? requireAddress(owner, 'owner') : deployer
+      // The vault's human owner (setCap/revoke/withdraw). Resolution order, all NON-tool-argument so a
+      // prompt-injected model can't redirect ownership:
+      //   1. the authenticated user's own address (multi-user, non-custodial — operator is never owner)
+      //   2. the server's configured OWNER_ADDRESS (single-operator)
+      //   3. the deployer (local/demo default)
+      const configuredOwner = ownerAddress()
+      const human = ctx?.ownerAddress
+        ? requireAddress(ctx.ownerAddress, 'session owner')
+        : configuredOwner
+          ? requireAddress(configuredOwner, 'OWNER_ADDRESS')
+          : deployer
+      // The sole address withdraw can ever send to. For a per-user session this is the user's OWN
+      // address, so a malicious operator can never redirect a withdrawal. Config can override for the
+      // single-operator case; defaults to the owner.
+      const configuredPayout = ownerPayoutAddress()
+      const payout = ctx?.ownerAddress
+        ? human
+        : configuredPayout
+          ? requireAddress(configuredPayout, 'OWNER_PAYOUT_ADDRESS')
+          : human
+      // A per-user session must not spend the OPERATOR's deployer funds. The user funds their own vault
+      // from their own wallet (the contract's public `fund()`); operator-funded `fund` is admin-only.
+      if (ctx?.ownerAddress && fund && fund > 0) {
+        throw new Error(
+          'This is your own (user-owned) agent, so it can\'t be funded from the operator\'s treasury. ' +
+            `Send USDC to the vault address directly from your wallet, or call fund_agent after it exists.`,
+        )
+      }
 
       let proofInput: WorldIdProof | undefined
       if (worldIdProof) {
@@ -186,22 +242,38 @@ server.registerTool(
         capUnits: toUsdcUnits(budget),
         agentName: ensName,
         humanProof: proof.nullifier,
+        payout,
       })
+
+      // Apply spend limits BEFORE funding, so the vault is never funded-but-unlimited for any window.
+      // setDailyLimit / setMaxPerSpend are HUMAN_OWNER_ROLE-only and the server signs as the deployer,
+      // so these auto-apply only when the server IS the owner. With a separate cold owner, that owner
+      // sets their own policy from their wallet (the on-chain lifetime cap + payout lock still hold).
+      let policyNote = ''
+      const serverOwns = human === deployer
+      // Default daily velocity limit: bounds how fast a hijacked/injected agent can drain. An explicit
+      // `dailyLimit` (incl. 0 to disable) overrides the server default fraction of the budget.
+      const dailyBps = defaultDailyLimitBps()
+      const dailyDollars = dailyLimit !== undefined ? dailyLimit : (budget * dailyBps) / 10_000
+      // Validate every allowlist entry up front — a malformed/prompt-injected address must be rejected
+      // here, not silently passed to the contract. Empty list = allowlist not requested.
+      const allowedAddrs = (allowlist ?? []).map((a, i) => requireAddress(a, `allowlist[${i}]`))
+      if (serverOwns) {
+        if (dailyDollars > 0) await setDailyLimit(vault, toUsdcUnits(dailyDollars))
+        if (maxPerSpend && maxPerSpend > 0) await setMaxPerSpend(vault, toUsdcUnits(maxPerSpend))
+        if (allowedAddrs.length > 0) await enableAllowlist(vault, allowedAddrs)
+      } else {
+        const wanted: string[] = []
+        if (dailyDollars > 0) wanted.push(`daily limit $${dailyDollars}`)
+        if (maxPerSpend && maxPerSpend > 0) wanted.push(`per-tx limit $${maxPerSpend}`)
+        if (allowedAddrs.length > 0) wanted.push(`allowlist of ${allowedAddrs.length} recipient(s)`)
+        if (wanted.length) {
+          policyNote = `\n\n> Spend policy (${wanted.join(', ')}) not applied: only the owner (${human}) can set it. Call setDailyLimit / setMaxPerSpend / setAllowlistEnabled+setAllowedBatch from the owner wallet.`
+        }
+      }
 
       if (fundUnits > 0n) await fundVault(vault, usdcAddr, fundUnits)
       if (gasUnits > 0n) await topUpGas(wallet.address, usdcAddr, gasUnits)
-
-      // Per-transaction ceiling. setMaxPerSpend is HUMAN_OWNER_ROLE-only, and the server signs as the
-      // deployer — so we can only set it here when the owner IS the deployer. With a custom owner, the
-      // user sets it themselves from their wallet (or via a future owner-authenticated path).
-      let perSpendNote = ''
-      if (maxPerSpend && maxPerSpend > 0) {
-        if (human === deployer) {
-          await setMaxPerSpend(vault, toUsdcUnits(maxPerSpend))
-        } else {
-          perSpendNote = `\n\n> Per-tx limit of $${maxPerSpend} not applied: only the owner (${human}) can set it. Call setMaxPerSpend from the owner wallet.`
-        }
-      }
 
       // Issue the ENS subname now that we know the agent address + vault it points at.
       const ens = await registerEnsSubname(name, { address: wallet.address, budget: String(budget), vault })
@@ -221,7 +293,7 @@ server.registerTool(
 
       const state = await readVault(vault)
       return text(
-        deploymentCard(record, state, { ensRegistered: ens.registered, humanVerified: proof.verified }) + perSpendNote,
+        deploymentCard(record, state, { ensRegistered: ens.registered, humanVerified: proof.verified }) + policyNote,
       )
     } catch (e) {
       return errorText(e)
@@ -259,7 +331,12 @@ server.registerTool(
       const record = await getAgent(name)
       if (!record) throw new Error(`No agent named "${name}". Spawn it first with spawn_agent.`)
 
-      const { txHash } = await executeSpend(record.circleWalletId, record.vault, recipient, toUsdcUnits(amount))
+      // Pre-flight the spend off-chain: if a guard (budget / allowlist / velocity) would reject it,
+      // surface the named reason instantly instead of waiting ~2 min for Circle to report "FAILED".
+      const units = toUsdcUnits(amount)
+      await simulateSpend(record.vault, record.agentAddress, recipient, units)
+
+      const { txHash } = await executeSpend(record.circleWalletId, record.vault, recipient, units)
 
       const state = await readVault(record.vault)
       return text(spendCard(record, recipient, String(amount), state, txHash))
@@ -330,6 +407,10 @@ server.registerTool(
             `Endpoint quoted $${fromUsdcUnits(amountUnits)} but maxAmount is $${fromUsdcUnits(ceilingUnits)} — refusing to pay.`,
           )
         }
+
+        // Pre-flight off-chain so a budget/allowlist/velocity rejection (e.g. the seller isn't
+        // allowlisted) surfaces its named reason instantly, before paying Circle to fail on-chain.
+        await simulateSpend(record.vault, record.agentAddress, seller, amountUnits)
 
         // The payment: an on-chain AgentVault.spend. Reverts if it would cross the budget cap.
         const { txHash } = await executeSpend(record.circleWalletId, record.vault, seller, amountUnits)

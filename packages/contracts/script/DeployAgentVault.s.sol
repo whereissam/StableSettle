@@ -16,6 +16,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ///   - AGENT_ADDRESS  the agent wallet (granted AGENT_ROLE). Defaults to the deployer (demo only).
 ///   - BUDGET_CAP     lifetime spend cap in token units. Defaults to 5000e6 (5,000 USDC).
 ///   - AGENT_NAME     the agent's ENS name, recorded as provenance. Defaults to a demo name.
+///   - OWNER_PAYOUT   the sole address withdraw can send to (a cold recovery address). Defaults to
+///                    HUMAN_ADDRESS. Set a distinct cold address to neutralise an owner-key leak.
 ///
 /// Run with:
 ///   AGENT_ADDRESS=0x… forge script script/DeployAgentVault.s.sol:DeployAgentVault \
@@ -31,6 +33,8 @@ contract DeployAgentVault is Script {
         string memory name = vm.envOr("AGENT_NAME", string("trader-bot.stablesettle.eth"));
         // World ID nullifier is recorded by the MCP server at runtime; 0 for a script deploy.
         bytes32 proof = bytes32(0);
+        // Sole withdraw destination. Defaults to the human owner; pass a cold address for production.
+        address payout = vm.envOr("OWNER_PAYOUT", human);
 
         vm.startBroadcast();
 
@@ -45,7 +49,7 @@ contract DeployAgentVault is Script {
             usdc = IERC20(usdcAddress);
         }
 
-        AgentVault vault = new AgentVault(usdc, human, agent, cap, name, proof);
+        AgentVault vault = new AgentVault(usdc, human, agent, cap, name, proof, payout);
 
         vm.stopBroadcast();
 

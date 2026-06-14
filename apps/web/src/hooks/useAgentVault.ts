@@ -10,7 +10,7 @@ export function useAgentVault(address?: string) {
   return useQuery({
     queryKey: ['agentVault', address],
     enabled: !!client && valid,
-    refetchInterval: 4000,
+    refetchInterval: 6000,
     queryFn: async () => {
       const addr = address as Address
       const [state, history] = await Promise.all([

@@ -40,6 +40,7 @@ export function AgentsPage() {
   const v = data?.state
   const history = data?.history ?? []
   const hasDaily = !!v && v.dailyLimit > 0n
+  const hasPerTx = !!v && v.maxPerSpend > 0n
   const health = v ? HEALTH_META[v.health] : null
 
   const [fundAmount, setFundAmount] = useState('')
@@ -51,8 +52,8 @@ export function AgentsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Agent Vaults</h1>
         <p className="text-sm text-muted-foreground">
-          The on-chain firewall for autonomous agents. Budget cap, daily velocity limit, and health are
-          read straight from <code className="rounded bg-secondary px-1">AgentVault</code> on Arc — no backend.
+          The on-chain firewall for autonomous agents. Budget cap, per-transaction cap, daily velocity
+          limit, and health are read straight from <code className="rounded bg-secondary px-1">AgentVault</code> on Arc — no backend.
         </p>
       </div>
 
@@ -134,13 +135,18 @@ export function AgentsPage() {
                 />
               )}
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard label="Vault balance" value={formatUsd(v.balance)} hint="USDC held in the vault" />
                 <StatCard
                   label="Cap remaining"
                   value={formatUsd(v.capRemaining)}
                   hint="Spendable under the lifetime cap"
                   accent={v.health === 'warning' ? 'warning' : 'success'}
+                />
+                <StatCard
+                  label="Per-tx cap"
+                  value={hasPerTx ? formatUsd(v.maxPerSpend) : '—'}
+                  hint={hasPerTx ? 'Max for any single spend' : 'No per-tx cap set'}
                 />
                 <StatCard
                   label="Daily remaining"

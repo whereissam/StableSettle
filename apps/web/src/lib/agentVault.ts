@@ -21,6 +21,8 @@ export interface VaultState {
   capRemaining: bigint
   balance: bigint
   active: boolean
+  /** 0 = no per-transaction cap. */
+  maxPerSpend: bigint
   /** 0 = no daily limit. */
   dailyLimit: bigint
   /** Spendable in the current 24h window. UINT256_MAX when no daily limit is set. */
@@ -54,6 +56,12 @@ export async function readVault(client: PublicClient, address: Address): Promise
     client.readContract({ ...c, functionName: 'health' }),
   ])) as [string, bigint, bigint, bigint, boolean, bigint, readonly [number, bigint, bigint]]
 
+  // maxPerSpend is newer than the first vaults — its getter reverts on older bytecode, so read it
+  // tolerantly (0 = off) instead of failing the whole load for a pre-existing vault.
+  const maxPerSpend = (await client
+    .readContract({ ...c, functionName: 'maxPerSpend' })
+    .catch(() => 0n)) as bigint
+
   const [status, capRemaining, todayRemaining] = health
   return {
     address,
@@ -63,6 +71,7 @@ export async function readVault(client: PublicClient, address: Address): Promise
     capRemaining,
     balance,
     active,
+    maxPerSpend,
     dailyLimit,
     todayRemaining,
     health: healthFromStatus(Number(status)),

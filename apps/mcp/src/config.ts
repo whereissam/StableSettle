@@ -81,6 +81,43 @@ export function agentStorePath(): string {
   return process.env.AGENT_STORE_PATH || new URL('../.agents.json', import.meta.url).pathname
 }
 
+/**
+ * The vault's human owner (HUMAN_OWNER_ROLE: setCap / revoke / withdraw). Resolved from SERVER
+ * config — deliberately NOT a tool argument, so a prompt-injected model cannot redirect ownership
+ * of a vault (and the funds behind it) to an attacker. Unset → defaults to the deployer.
+ */
+export function ownerAddress(): string | undefined {
+  return process.env.OWNER_ADDRESS || undefined
+}
+
+/**
+ * The sole address a vault's `withdraw` can ever send to — a cold recovery address, fixed on-chain
+ * at construction. Unset → defaults to the owner. Setting a distinct cold address means even a
+ * stolen owner key can only move funds *home*, never to an attacker. Also never a tool argument.
+ */
+export function ownerPayoutAddress(): string | undefined {
+  return process.env.OWNER_PAYOUT_ADDRESS || undefined
+}
+
+/**
+ * Default 24h velocity limit applied to a freshly-spawned agent, as a fraction of its lifetime cap
+ * in basis points. A new agent left with ONLY a lifetime cap can be drained in a single tricked /
+ * injected payment; a daily limit bounds how fast funds can leave per 24h window (with auto-reset),
+ * so a hijacked agent can't burst the whole treasury at once. Default 2000 bps = 20% (drain takes
+ * ≥5 days, giving the owner time to notice and revoke). Set to 0 to disable the default entirely
+ * (e.g. for a demo). Only applied automatically when the server is the vault owner; with a separate
+ * cold owner, that owner sets their own policy. A per-spawn `dailyLimit` argument overrides this.
+ */
+export function defaultDailyLimitBps(): number {
+  const raw = process.env.DEFAULT_DAILY_LIMIT_BPS
+  if (raw === undefined) return 2000
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0 || n > 10_000) {
+    throw new Error(`DEFAULT_DAILY_LIMIT_BPS must be 0–10000 (basis points). Got: ${JSON.stringify(raw)}.`)
+  }
+  return Math.floor(n)
+}
+
 /** Largest dollar amount we accept — beyond this, `dollars * 1e6` loses integer precision in a JS number. */
 export const MAX_USDC_DOLLARS = 9_000_000
 

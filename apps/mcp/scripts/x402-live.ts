@@ -60,6 +60,7 @@ async function ensureAgent(): Promise<AgentRecord> {
     capUnits: toUsdcUnits(BUDGET),
     agentName: ensNameFor(NAME),
     humanProof: `0x${'0'.repeat(64)}`,
+    payout: human,
   })
   check('AgentVault deployed on Arc', !!vault, vault)
   await fundVault(vault, usdc, toUsdcUnits(FUND))

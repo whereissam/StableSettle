@@ -59,6 +59,14 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     /// @notice The World ID nullifier hash of the human who authorized this agent. Provenance only.
     bytes32 public humanProof;
 
+    /// @notice The ONLY address `withdraw` can send funds to — fixed at construction, immutable.
+    ///         This is the anti-theft invariant: even if the HUMAN_OWNER_ROLE key is fully
+    ///         compromised (or a `withdraw` tool is exposed to a prompt-injected agent), recovered
+    ///         funds can only ever go *home* to this address — never to an attacker-chosen one.
+    ///         Withdraw therefore has no arbitrary destination at all. Set it to a cold address
+    ///         distinct from the hot operating key to neutralise a key leak entirely.
+    address public immutable ownerPayout;
+
     /// @notice Protocol fee on each spend, in basis points (0 = off). Capped at MAX_FEE_BPS.
     uint256 public feeBps;
     /// @notice Where the protocol fee is sent. address(0) means no fee is taken.
@@ -80,6 +88,15 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     /// @notice Amount spent within the current window. Logically resets once the window elapses.
     uint256 public spentToday;
 
+    /// @notice When true, the agent may only pay addresses on `allowedRecipients`. Default false (off),
+    ///         so existing behaviour is unchanged until an owner opts in. This is the defence against a
+    ///         prompt-injected/hijacked agent being talked into paying an *attacker* within budget: the
+    ///         amount, the budget, and the daily limit can all be fine, yet the spend still reverts
+    ///         because the destination isn't approved. Enforced in `spend`, not flagged off-chain.
+    bool public allowlistEnabled;
+    /// @notice Addresses the agent is permitted to pay when `allowlistEnabled` is true. Owner-managed.
+    mapping(address => bool) public allowedRecipients;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Events — an off-chain audit log / deployment card is built entirely from these.
     // ─────────────────────────────────────────────────────────────────────────
@@ -99,6 +116,8 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     event CapChanged(uint256 oldCap, uint256 newCap);
     event MaxPerSpendChanged(uint256 oldLimit, uint256 newLimit);
     event DailyLimitChanged(uint256 oldLimit, uint256 newLimit);
+    event AllowlistEnabledChanged(bool enabled);
+    event RecipientAllowedChanged(address indexed recipient, bool allowed);
     event Revoked(address indexed by);
     event Reinstated(address indexed by);
     event Withdrawn(address indexed to, uint256 amount);
@@ -115,6 +134,9 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     error PerSpendLimitExceeded(uint256 requested, uint256 limit);
     /// @notice The agent tried to spend more than its remaining allowance for the current 24h window.
     error DailyLimitExceeded(uint256 requested, uint256 remainingToday);
+    /// @notice The allowlist is on and the agent tried to pay an address that isn't approved. The spend
+    ///         is refused regardless of budget — a hijacked agent can't be talked into paying a stranger.
+    error RecipientNotAllowed(address recipient);
     /// @notice A new cap cannot be set below what the agent has already spent.
     error CapBelowSpent(uint256 newCap, uint256 spent);
     error AgentRevoked();
@@ -136,7 +158,17 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     /// @param cap The lifetime spend ceiling, in token units (e.g. 5000e6 for 5,000 USDC).
     /// @param name The agent's ENS name, recorded as provenance.
     /// @param proof The human's World ID nullifier hash, recorded as provenance (0 if not used).
-    constructor(IERC20 settlementToken, address human, address agent, uint256 cap, string memory name, bytes32 proof) {
+    /// @param payout The sole address `withdraw` may send to (a cold recovery address). If zero,
+    ///        it defaults to `human` — never to an attacker-supplied value, and never settable later.
+    constructor(
+        IERC20 settlementToken,
+        address human,
+        address agent,
+        uint256 cap,
+        string memory name,
+        bytes32 proof,
+        address payout
+    ) {
         if (address(settlementToken) == address(0) || human == address(0) || agent == address(0)) {
             revert ZeroAddress();
         }
@@ -147,6 +179,10 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         active = true;
         agentName = name;
         humanProof = proof;
+        // The withdraw destination is locked here for the life of the vault. Defaulting to `human`
+        // keeps the safe behaviour for callers that don't separate a cold address; a distinct cold
+        // `payout` makes even a stolen owner key unable to redirect a withdrawal.
+        ownerPayout = payout == address(0) ? human : payout;
 
         _grantRole(DEFAULT_ADMIN_ROLE, human);
         _grantRole(HUMAN_OWNER_ROLE, human);
@@ -172,6 +208,11 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         if (to == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
         if (!active) revert AgentRevoked();
+
+        // Recipient allowlist: when on, the destination must be pre-approved by the owner. Checked up
+        // front so a prompt-injected agent paying a stranger reverts even when the amount is well within
+        // budget. The agent (AGENT_ROLE) can never edit this list — only HUMAN_OWNER_ROLE can.
+        if (allowlistEnabled && !allowedRecipients[to]) revert RecipientNotAllowed(to);
 
         // Per-transaction cap: an item-level ceiling. 0 = disabled. Checked first so a single oversized
         // spend reverts with the specific error, regardless of remaining budget.
@@ -273,6 +314,30 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         emit DailyLimitChanged(oldLimit, newLimit);
     }
 
+    /// @notice Turn the recipient allowlist on or off. HUMAN_OWNER_ROLE only. When on, the agent may
+    ///         only pay approved addresses. Off (default) keeps the original behaviour.
+    function setAllowlistEnabled(bool enabled) external onlyRole(HUMAN_OWNER_ROLE) {
+        allowlistEnabled = enabled;
+        emit AllowlistEnabledChanged(enabled);
+    }
+
+    /// @notice Approve or un-approve a single recipient. HUMAN_OWNER_ROLE only — never the agent, so a
+    ///         hijacked agent cannot whitelist its own attacker. Applies whenever the allowlist is on.
+    function setAllowed(address recipient, bool allowed) external onlyRole(HUMAN_OWNER_ROLE) {
+        if (recipient == address(0)) revert ZeroAddress();
+        allowedRecipients[recipient] = allowed;
+        emit RecipientAllowedChanged(recipient, allowed);
+    }
+
+    /// @notice Approve or un-approve many recipients in one call. HUMAN_OWNER_ROLE only.
+    function setAllowedBatch(address[] calldata recipients, bool allowed) external onlyRole(HUMAN_OWNER_ROLE) {
+        for (uint256 i = 0; i < recipients.length; i++) {
+            if (recipients[i] == address(0)) revert ZeroAddress();
+            allowedRecipients[recipients[i]] = allowed;
+            emit RecipientAllowedChanged(recipients[i], allowed);
+        }
+    }
+
     /// @notice Revoke the agent — it can no longer spend. Funds stay in the vault for withdrawal.
     function revoke() external onlyRole(HUMAN_OWNER_ROLE) {
         if (!active) revert AgentRevoked();
@@ -287,14 +352,16 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         emit Reinstated(msg.sender);
     }
 
-    /// @notice Withdraw `amount` token from the vault to `to`. The human's escape hatch.
-    function withdraw(address to, uint256 amount) external onlyRole(HUMAN_OWNER_ROLE) nonReentrant {
-        if (to == address(0)) revert ZeroAddress();
+    /// @notice Withdraw `amount` token from the vault. The human's escape hatch. There is NO
+    ///         destination parameter by design: funds can only ever return to `ownerPayout`, the
+    ///         address fixed at construction. So even a stolen HUMAN_OWNER_ROLE key (or a withdraw
+    ///         call triggered by a prompt-injected agent) can move money home — never to an attacker.
+    function withdraw(uint256 amount) external onlyRole(HUMAN_OWNER_ROLE) nonReentrant {
         if (amount == 0) revert ZeroAmount();
         uint256 bal = token.balanceOf(address(this));
         if (amount > bal) revert InsufficientBalance(amount, bal);
-        emit Withdrawn(to, amount);
-        token.safeTransfer(to, amount);
+        emit Withdrawn(ownerPayout, amount);
+        token.safeTransfer(ownerPayout, amount);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

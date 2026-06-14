@@ -164,9 +164,10 @@ The on-chain fee (`feeBps`, ≤ 1% cap, **default 0**, gated by `FEE_ADMIN_ROLE`
 
 ## 11 · What's built (this is not vaporware)
 
-- ✅ **`AgentVault.sol`** — budget cap + daily velocity limit + on-chain health view + capped, non-bricking protocol fee + roles + revoke. **46 tests.**
-- ✅ **`StableSettleEscrow`** — multi-party settlement, disputes, duties anomaly. **82 tests repo-wide,** incl. a stateful invariant.
-- ✅ **MCP server** — `spawn_agent` / `agent_pay` / `get_agent`, with address + amount validation.
+- ✅ **`AgentVault.sol`** — budget cap + per-tx cap + daily velocity limit + **withdraw locked to a fixed cold address** + **opt-in recipient allowlist** + on-chain health view + capped, non-bricking protocol fee + roles + revoke. **56 tests.**
+- ✅ **`StableSettleEscrow`** — multi-party settlement, disputes, duties anomaly. **92 tests repo-wide,** incl. a stateful invariant.
+- ✅ **Anti-theft hardening** — ownership set by server config (no prompt-injection takeover), withdraw can't be redirected, agents born with a 24h velocity limit.
+- ✅ **MCP server** — `spawn_agent` / `fund_agent` / `topup_gas` / `agent_pay` / `agent_pay_x402` / `get_agent`, with address + amount validation.
 - ✅ **ENS** via NameStone · ✅ **World ID** cloud verification · ✅ **Circle** agent wallets.
 - ✅ **Local end-to-end** (`e2e:local`) — deploy → fund → fee → **over-budget revert**, 12/12 green.
 - ✅ **Preflight doctor** for the live Arc run.

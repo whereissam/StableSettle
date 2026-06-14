@@ -2,6 +2,8 @@
 // The deployer key acts as the human owner; the agent (a Circle wallet) only ever calls spend().
 
 import {
+  BaseError,
+  ContractFunctionRevertedError,
   createPublicClient,
   createWalletClient,
   defineChain,
@@ -13,7 +15,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { agentVaultAbi, agentVaultBytecode, erc20Abi } from '@stablesettle/shared/abi'
-import { ARC_TESTNET_CHAIN_ID, chainConfig } from './config.ts'
+import { ARC_TESTNET_CHAIN_ID, chainConfig, fromUsdcUnits } from './config.ts'
 
 let cached: {
   publicClient: PublicClient
@@ -74,6 +76,8 @@ export interface DeployVaultParams {
   capUnits: bigint
   agentName: string
   humanProof: `0x${string}`
+  /** The sole address `withdraw` may send to (a cold recovery address). Locked at construction. */
+  payout: Address
 }
 
 /** Deploy an AgentVault and return its address + the deploy tx hash. */
@@ -86,7 +90,7 @@ export async function deployVault(p: DeployVaultParams): Promise<{ vault: Addres
     chain: walletClient.chain,
     abi: agentVaultAbi,
     bytecode: agentVaultBytecode,
-    args: [p.usdc, p.human, p.agent, p.capUnits, p.agentName, p.humanProof],
+    args: [p.usdc, p.human, p.agent, p.capUnits, p.agentName, p.humanProof, p.payout],
   })
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
@@ -137,6 +141,48 @@ export async function setMaxPerSpend(vault: Address, limitUnits: bigint): Promis
   return hash
 }
 
+/** Owner sets the rolling 24h velocity limit (0 = off). Deployer must hold HUMAN_OWNER_ROLE. */
+export async function setDailyLimit(vault: Address, limitUnits: bigint): Promise<Hash> {
+  const { publicClient, walletClient } = clients()
+  const account = walletClient.account!
+  const hash = await walletClient.writeContract({
+    account,
+    chain: walletClient.chain,
+    address: vault,
+    abi: agentVaultAbi,
+    functionName: 'setDailyLimit',
+    args: [limitUnits],
+  })
+  await publicClient.waitForTransactionReceipt({ hash })
+  return hash
+}
+
+/** Owner turns the recipient allowlist on/off, then approves a batch of addresses. HUMAN_OWNER_ROLE. */
+export async function enableAllowlist(vault: Address, recipients: Address[]): Promise<Hash> {
+  const { publicClient, walletClient } = clients()
+  const account = walletClient.account!
+  const enableHash = await walletClient.writeContract({
+    account,
+    chain: walletClient.chain,
+    address: vault,
+    abi: agentVaultAbi,
+    functionName: 'setAllowlistEnabled',
+    args: [true],
+  })
+  await publicClient.waitForTransactionReceipt({ hash: enableHash })
+  if (recipients.length === 0) return enableHash
+  const batchHash = await walletClient.writeContract({
+    account,
+    chain: walletClient.chain,
+    address: vault,
+    abi: agentVaultAbi,
+    functionName: 'setAllowedBatch',
+    args: [recipients, true],
+  })
+  await publicClient.waitForTransactionReceipt({ hash: batchHash })
+  return batchHash
+}
+
 /** Send a small amount of USDC to the agent wallet so it can pay gas (USDC is gas on Arc). */
 export async function topUpGas(agent: Address, usdc: Address, amountUnits: bigint): Promise<Hash> {
   const { publicClient, walletClient } = clients()
@@ -153,6 +199,67 @@ export async function topUpGas(agent: Address, usdc: Address, amountUnits: bigin
   return hash
 }
 
+/**
+ * Map an AgentVault.spend() custom-error revert to a clear, human-readable reason.
+ * Returns undefined if the error isn't a decodable contract revert (caller should rethrow).
+ */
+function friendlySpendRevert(e: unknown, to: Address): string | undefined {
+  if (!(e instanceof BaseError)) return undefined
+  const revert = e.walk((err) => err instanceof ContractFunctionRevertedError)
+  if (!(revert instanceof ContractFunctionRevertedError)) return undefined
+  const name = revert.data?.errorName
+  const a = (revert.data?.args ?? []) as readonly bigint[]
+  const usd = (v: unknown) => `$${fromUsdcUnits(v as bigint)}`
+  switch (name) {
+    case 'BudgetExceeded':
+      return `Reverted on-chain: BudgetExceeded — requested ${usd(a[0])} but only ${usd(a[1])} of the lifetime budget cap remains. The vault refused it; no funds moved.`
+    case 'RecipientNotAllowed':
+      return `Reverted on-chain: RecipientNotAllowed(${to}) — the recipient allowlist is ON and this address is not on it. Even within budget, the agent cannot pay an address the owner didn't approve.`
+    case 'DailyLimitExceeded':
+      return `Reverted on-chain: DailyLimitExceeded — requested ${usd(a[0])} but only ${usd(a[1])} remains in the rolling 24h velocity limit. The agent can't burst-drain, even to an approved address.`
+    case 'PerSpendLimitExceeded':
+      return `Reverted on-chain: PerSpendLimitExceeded — requested ${usd(a[0])} exceeds the ${usd(a[1])} per-transaction ceiling.`
+    case 'InsufficientBalance':
+      return `Reverted on-chain: InsufficientBalance — the vault treasury holds ${usd(a[1])} but ${usd(a[0])} was requested. Top it up with fund_agent. (The budget cap was not the blocker.)`
+    case 'AgentRevoked':
+      return `Reverted on-chain: AgentRevoked — this agent was revoked by its owner and can no longer spend.`
+    case 'ZeroAmount':
+      return `Reverted on-chain: ZeroAmount — the amount must be greater than zero.`
+    case 'ZeroAddress':
+      return `Reverted on-chain: ZeroAddress — the recipient cannot be the zero address.`
+    default:
+      return name ? `Reverted on-chain: ${name}.` : undefined
+  }
+}
+
+/**
+ * Dry-run AgentVault.spend(to, amount) as the agent (off-chain eth_call) BEFORE the real
+ * Circle execution. If an on-chain guard would reject it, throw a clean, named reason instantly
+ * — instead of waiting ~2 min for Circle to report a generic "FAILED" and burning gas on a
+ * doomed tx. This is what makes the firewall demo land: "RecipientNotAllowed", not "FAILED".
+ */
+export async function simulateSpend(
+  vault: Address,
+  agent: Address,
+  to: Address,
+  amountUnits: bigint,
+): Promise<void> {
+  const { publicClient } = clients()
+  try {
+    await publicClient.simulateContract({
+      account: agent,
+      address: vault,
+      abi: agentVaultAbi,
+      functionName: 'spend',
+      args: [to, amountUnits],
+    })
+  } catch (e) {
+    const friendly = friendlySpendRevert(e, to)
+    if (friendly) throw new Error(friendly)
+    throw e
+  }
+}
+
 export interface VaultState {
   budgetCap: bigint
   spent: bigint
@@ -164,6 +271,7 @@ export interface VaultState {
   token: Address
   maxPerSpend: bigint
   dailyLimit: bigint
+  allowlistEnabled: boolean
 }
 
 /** Read the full on-chain state of a vault (source of truth for status cards). */
@@ -189,6 +297,21 @@ export async function readVault(vault: Address): Promise<VaultState> {
       readOptional('maxPerSpend'),
       readOptional('dailyLimit'),
     ])
+  // allowlistEnabled is newer than the earliest vaults — its getter reverts on older bytecode, so read
+  // it tolerantly (false = off) instead of failing the whole load for a pre-existing vault.
+  const allowlistEnabled = await read<boolean>('allowlistEnabled').catch(() => false)
 
-  return { budgetCap, spent, remaining, balance, active, agentName, humanProof, token, maxPerSpend, dailyLimit }
+  return {
+    budgetCap,
+    spent,
+    remaining,
+    balance,
+    active,
+    agentName,
+    humanProof,
+    token,
+    maxPerSpend,
+    dailyLimit,
+    allowlistEnabled,
+  }
 }

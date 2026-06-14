@@ -18,5 +18,15 @@
     "human": "0x2b44f71B6EB9f2F981B08EA9Af582157075B34B9",
     "usdc": "0x3600000000000000000000000000000000000000",
     "createdTx": "0x075978d367fd25ebf9c5a8969c000265b3de82e6e454cc3cea20045758da910f"
+  },
+  "research-bot": {
+    "name": "research-bot",
+    "ensName": "research-bot.stablesettle.eth",
+    "vault": "0xf51bd6953122e11e67f420c2328af6c5ccaaa590",
+    "agentAddress": "0x27a5b9b6443d70b8b6b4816a9f99ef51516d8b49",
+    "circleWalletId": "7b2dadfb-0418-5675-9c34-70c5795bd048",
+    "human": "0x2b44f71B6EB9f2F981B08EA9Af582157075B34B9",
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "createdTx": "0xece0800c98555c6a5d3f1b9b8f4d277b4ecffa64277a5738e04a40fb62caa262"
   }
 }

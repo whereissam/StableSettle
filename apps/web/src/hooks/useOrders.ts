@@ -16,7 +16,7 @@ export function useOrders() {
   return useQuery({
     queryKey: ['orders', apiEnabled],
     enabled: apiEnabled || (!!client && isConfigured),
-    refetchInterval: 4000,
+    refetchInterval: 10000,
     queryFn: async () => {
       if (apiEnabled && api) {
         const res = await api.orders.$get()
@@ -36,7 +36,7 @@ export function useOrder(orderId?: `0x${string}`) {
   return useQuery({
     queryKey: ['order', orderId, apiEnabled],
     enabled: !!orderId && (apiEnabled || (!!client && isConfigured)),
-    refetchInterval: 3000,
+    refetchInterval: 8000,
     queryFn: async () => {
       if (apiEnabled && api) {
         const res = await api.orders[':orderId'].$get({ param: { orderId: orderId! } })

@@ -86,6 +86,7 @@ async function main() {
     capUnits: usdc(0.01),
     agentName: 'buyer-bot.stablesettle.eth',
     humanProof: `0x${'0'.repeat(64)}`,
+    payout: deployer.address,
   })
   await fundVault(vault, usdcAddr, usdc(1))
   check('vault deployed + funded', !!vault, `cap $0.01, balance $1`)

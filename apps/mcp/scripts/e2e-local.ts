@@ -97,6 +97,7 @@ async function main() {
     capUnits: usdc(5000),
     agentName: 'trader-bot.stablesettle.eth',
     humanProof: `0x${'0'.repeat(64)}`,
+    payout: deployer.address,
   })
   check('AgentVault deployed via chain.ts', !!vault, vault)
   check('deploy tx mined', !!txHash)
