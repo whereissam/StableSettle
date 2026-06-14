@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.jpg" alt="StableSettle" width="180" />
+</p>
+
 # StableSettle
 
 **Spawn a budget-capped AI treasury in 15 seconds.**

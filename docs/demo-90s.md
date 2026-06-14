@@ -78,6 +78,25 @@ Ask: *"have research-bot buy the ETH-USD quote from http://localhost:4021"* (`ag
 
 ---
 
+## Receipts — run it one by one, fill in your own (Arc testnet)
+
+Don't paste old records — **run each step live** and drop your own fresh hash in. Each `arcscan` link
+proves it on-chain; this worksheet is what you show a judge who wants proof.
+
+| Step | Expected | Your tx / address (fill in after running) |
+|------|----------|-------------------------------------------|
+| Spawn → vault deployed | ✅ vault address returned | `0x…` |
+| Fund + gas | ✅ vault treasury + wallet funded | `0x…` |
+| Agent pays under cap | ✅ spend succeeds | `0x…` |
+| Pay over the per-tx / budget cap | ⛔ reverts (`BudgetExceeded`) | `0x…` |
+| Pay an address NOT on the allowlist | ⛔ reverts (`RecipientNotAllowed`) | `0x…` |
+| Agent buys x402 quote | ✅ data returned | `0x…` |
+
+Open each on `https://testnet.arcscan.app/tx/<hash>`. To sanity-check the whole flow offline before the
+live run, use `bun run --filter='@stablesettle/mcp' e2e:local` (deploy → limits → fund → gas → revert).
+
+---
+
 ## If a judge pushes (10s answers)
 
 - **"How are you different from Crossmint/Coinbase?"** — "Their on-chain caps are real, we
