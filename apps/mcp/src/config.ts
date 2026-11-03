@@ -69,6 +69,26 @@ export function namestoneNetwork(): 'sepolia' | 'mainnet' {
   return process.env.NAMESTONE_NETWORK === 'mainnet' ? 'mainnet' : 'sepolia'
 }
 
+/**
+ * Tier-2 "ENS as the policy source": the ENS name whose text record holds the recipient allowlist.
+ * Server config, deliberately NOT a tool argument — a prompt-injected model must not be able to point
+ * the policy source at an attacker-controlled name (which could allowlist the attacker). Unset → the
+ * tool falls back to the agent's own ENS name. Set e.g. to the human owner's name (alice.eth).
+ */
+export function ensPolicyName(): string | undefined {
+  return process.env.ENS_POLICY_NAME || undefined
+}
+
+/** The ENS text-record key the recipient allowlist lives under (Tier-2 policy source). */
+export function ensAllowlistRecordKey(): string {
+  return process.env.ENS_ALLOWLIST_RECORD || 'stablesettle-allowlist'
+}
+
+/** RPC for READING ENS (sepolia/mainnet, per NAMESTONE_NETWORK). Optional — viem's chain default otherwise. */
+export function ensReadRpcUrl(): string | undefined {
+  return process.env.ENS_READ_RPC_URL || undefined
+}
+
 /** World ID app + action for cloud proof verification. Absent → human verification is skipped. */
 export function worldIdConfig(): { appId: `app_${string}`; action: string } | undefined {
   const appId = process.env.WORLD_ID_APP_ID
