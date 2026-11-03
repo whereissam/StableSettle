@@ -68,7 +68,8 @@ async function main() {
   await waitForAnvil(publicClient)
 
   // chain.ts reads env lazily; import after env is set.
-  const { deployVault, fundVault, readVault, topUpGas, setMaxPerSpend } = await import('../src/chain.ts')
+  const { deployVault, fundVault, readVault, topUpGas, setMaxPerSpend, setRecipientCap, readRecipientCap } =
+    await import('../src/chain.ts')
 
   // 1. Deploy MockUSDC (read the Foundry artifact) and mint to the deployer/human.
   const mockArtifact = (await Bun.file(
@@ -202,6 +203,42 @@ async function main() {
     perTxReverted = true
   }
   check('over per-tx-limit spend reverts on-chain', perTxReverted)
+
+  // 8. Per-recipient sub-budget via chain.ts setRecipientCap: bound how much ONE vendor can receive.
+  //    A fresh vendor capped at $50 can take $50, but a further $1 reverts RecipientCapExceeded — even
+  //    though it's under the $100/tx ceiling and there's lifetime budget to spare. "Who" + "how much each".
+  const VENDOR = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65' as Address // acct[4]
+  await setRecipientCap(vault, VENDOR, usdc(50))
+  let rc = await readRecipientCap(vault, VENDOR)
+  check('recipient cap set + readable', rc.cap === usdc(50) && rc.remaining === usdc(50), `$${rc.cap / 1_000_000n} cap`)
+
+  await agentWallet.writeContract({
+    address: vault,
+    abi: agentVaultAbi,
+    functionName: 'spend',
+    args: [VENDOR, usdc(50)], // exactly the per-recipient cap — succeeds
+    account: agent,
+    chain: anvilChain,
+  })
+  rc = await readRecipientCap(vault, VENDOR)
+  check('spend up to recipient cap succeeds', rc.spent === usdc(50) && rc.remaining === 0n, `vendor spent $${rc.spent / 1_000_000n}`)
+
+  let recipientCapReverted = false
+  try {
+    await agentWallet.writeContract({
+      address: vault,
+      abi: agentVaultAbi,
+      functionName: 'spend',
+      args: [VENDOR, usdc(1)], // tiny, well under budget + per-tx limit, but the vendor is maxed out
+      account: agent,
+      chain: anvilChain,
+    })
+  } catch {
+    recipientCapReverted = true
+  }
+  check('over per-recipient-cap spend reverts on-chain', recipientCapReverted)
+  rc = await readRecipientCap(vault, VENDOR)
+  check('recipient tally unchanged after revert', rc.spent === usdc(50))
 
   console.log(`\n✅ Local e2e passed — ${pass} checks. The on-chain spine works end-to-end.`)
 }

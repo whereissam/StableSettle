@@ -23,6 +23,13 @@ show the settlement engine too.
 > costs nothing). `fund` = real USDC into the vault treasury (the agent pays *from* this). `gas` = real
 > USDC into the agent's own wallet so it can *call* `spend()`. A vault can have a $500 cap but $0 to
 > spend — fund it at spawn (above) or after with `fund_agent` (treasury) + `topup_gas` (gas).
+>
+> **Two addresses, one rule — "which address gets the money?"** Spawn creates *two* things: the **vault
+> contract** (stores the USDC, enforces the cap) and the **agent wallet** (the AI's signing key — holds
+> only gas, never the treasury). **Money goes *into the vault address*.** A vault is born **empty** — a
+> prepaid card, not a credit line — and can't spend a cent until funded. In this demo the operator's
+> deployer funds it; a **real user just sends USDC to the vault address from their own wallet** (a plain
+> transfer is enough — `spend()` reads the vault's live balance), so we never custody their money.
 
 ---
 
@@ -61,6 +68,22 @@ Point at the deployment card: agent address, vault address, **cap $500 · spent 
 4. *(optional)* The velocity guard too: tell it to "move the whole treasury at once" to an allowed
    address → **daily limit** reverts, `DailyLimitExceeded`, health flips amber. *"Can't burst-drain
    even to a trusted party."*
+
+## (optional) The ENS-track beat — ENS *is* the policy, not a label
+
+Only if you're pitching the ENS track (adds ~20s). Pre-req: the owner's policy ENS name (set
+`ENS_POLICY_NAME`) has a `stablesettle-allowlist` text record listing the trusted address(es).
+
+1. Show the ENS record (ENS app / NameStone): *"The allowlist lives here, in ENS — the owner edits it,
+   not me in code."*
+2. Tell it *"sync research-bot's allowlist from ENS"* (`sync_allowlist_from_ens`). → it reads the record
+   via CCIP-Read and writes those addresses into the **on-chain** AgentVault allowlist.
+3. Now the injection-revert from the wow section is **driven by ENS**: a spend to anyone not in the ENS
+   record reverts `RecipientNotAllowed`. *"Edit the ENS text record, re-sync, the firewall changes. ENS
+   is the policy source; the contract is the trustless gate. Pull ENS out and there's no allowlist —
+   it's load-bearing, not a `name.eth` lookup."*
+4. (Dashboard) The **Agent Vaults** page resolves the agent's ENS name live and shows the spend-policy
+   text records — the write→read round-trip, through public ENS infra, not our backend.
 
 ## 0:60–0:80 — Autonomous, but bounded (x402)
 
@@ -104,6 +127,34 @@ live run, use `bun run --filter='@stablesettle/mcp' e2e:local` (deploy → limit
   unconditionally even with a stolen key — and it's Arc-native, USDC is the gas."
 - **"What's *not* on-chain?"** — "World ID is cloud-verified (Arc has no Router); the nullifier
   is recorded on-chain. That's it for this demo."
+- **"Do you actually *use* ENS, or just mint a name?"** — "ENS is the **policy source**, not decoration.
+  The owner publishes the agent's approved-recipient allowlist in an ENS text record
+  (`stablesettle-allowlist`). `sync_allowlist_from_ens` reads it back via a standard CCIP-Read ENS client
+  and writes it into the on-chain AgentVault allowlist, which the contract enforces. Edit the ENS record,
+  re-sync, and the firewall changes. Pull ENS out and there's no policy source — it's load-bearing, not a
+  `name.eth` lookup. It's ENS as the agent's portable identity + spend-policy layer (the direction of
+  ENSIP-26 Agent Text Records). The policy name is server-configured, never a model argument, so a
+  prompt-injected agent can't point it at an attacker's name to allowlist itself."
+- **"Is the ENS name on-chain? How do you issue it?"** — "One-time setup: I own the parent
+  `stablesettle.eth` and point its resolver at NameStone's offchain resolver (a single on-chain tx).
+  After that, each agent's subname (`research-bot.stablesettle.eth`) is a **gasless offchain subname** —
+  one NameStone API call sets the agent address + spend-policy text records, no per-agent gas. It
+  resolves in any standard ENS client (viem/ethers, the ENS app) via CCIP-Read; the records are served
+  offchain by NameStone. So the *resolver wiring* is on-chain, the *subname records* are offchain.
+  Fully on-chain subname mint is roadmap. ENS isn't our security core — the firewall runs without it;
+  ENS is the human-readable + machine-readable-policy layer on top."
+- **"Can you go more granular — per-recipient or per-category limits?"** — "Yes, and cleanly —
+  because unlike a flat wallet limit our `spend()` sees *who's being paid*. Per-recipient caps
+  ('vendor 0xABC ≤ $100') and per-category sub-budgets are the same Solidity invariant — owner-assigned
+  today, ENS-text-record-sourced on the roadmap. The one honest caveat: the chain can't *infer* a
+  category (it doesn't know what a 0x address sells), so 'category' is a mapping the owner sets, not
+  auto-classification. We shipped the four limits that prove the model — lifetime, per-tx, daily,
+  allowlist — and granularity is config on the same enforcement."
+- **"A new user hasn't sent any money — how do they fund it, and to which address?"** — "Spawn returns
+  the **vault address**; the user sends USDC to it from their own wallet (a plain transfer is enough —
+  the contract spends against its live balance). The vault is born empty and can't spend a cent until
+  then — a prepaid card, not a credit line. No hidden treasury; the money is always theirs, at an
+  address they funded. The agent's *own* wallet only ever holds a little gas, never the funds."
 - **"Whose money is it when someone else connects to your server?"** — "The deployer key only
   *deploys* the vault. Ownership and funding come from how the caller authenticates, never from a tool
   argument (so prompt injection can't redirect it):

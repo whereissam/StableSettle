@@ -293,7 +293,7 @@
           <div class="card flat" style="border-top:10px solid var(--black)"><div class="cell-title" style="display:flex;align-items:center;gap:0.4em"><span class="isq s-yellow" style="width:2em;height:2em"><svg viewBox="0 0 24 24"><use href="#i-warn" /></svg></span>Backend limit</div><p class="cell-body" style="margin:0.6em 0">A check on your server.</p><p class="cell-tag">bypass API → caught late</p></div>
           <div class="card" style="border-top:10px solid var(--black);background:var(--green)"><div class="cell-title" style="display:flex;align-items:center;gap:0.4em"><span class="isq s-green" style="width:2em;height:2em;background:var(--white)"><svg viewBox="0 0 24 24"><use href="#i-shield" /></svg></span>StableSettle</div><p class="cell-body" style="margin:0.6em 0">Treasury stays in the vault; the agent's wallet holds only <b>gas dust</b> — never the funds. Even a <b>stolen owner key</b> can only send funds to one fixed cold address.</p><p class="cell-tag">spend() over cap → REVERTS</p></div>
         </div>
-        <div class="card rv d4" style="background:var(--black);color:var(--white);box-shadow:8px 8px 0 var(--pink)"><p class="body" style="color:var(--white)">An AI agent without a human is a liability. <b style="font-weight:800">With StableSettle it's the extension of a verified human</b> — World ID proves who's accountable, ENS proves what it's authorized to do.</p></div>
+        <div class="card rv d4" style="background:var(--black);color:var(--white);box-shadow:8px 8px 0 var(--pink)"><p class="body" style="color:var(--white)">An AI agent without a human is a liability. <b style="font-weight:800">With StableSettle it's the extension of a verified human</b> — World ID proves who's accountable, ENS proves what it's authorized to do, the vault guarantees it can't overspend. <b style="font-weight:800">Unbounded autonomy becomes controlled autonomy.</b></p></div>
       </div>
     </section>
 
@@ -327,7 +327,7 @@
         <h2 class="lg rv d2">Spend $5,001 from a $5,000 vault.</h2>
         <div class="wow-lines rv d3"><span>It does not warn.</span><span>It does not flag.</span><span>It does not ask a backend.</span></div>
         <div class="revert-card rv d4"><div class="big">It reverts<br />on-chain.</div><div class="sub">→ BudgetExceeded(5001, 5000)</div></div>
-        <p class="body rv d5" style="font-weight:600">The same guard backs a <b style="font-weight:800">daily velocity limit</b>, a <b style="font-weight:800">per-transaction cap</b>, and an <b style="font-weight:800">opt-in recipient allowlist</b> — so a prompt-injected agent told to "pay 0xAttacker $5" <b style="font-weight:800">still reverts</b> (<code>RecipientNotAllowed</code>) even though the amount, budget, and daily limit are all fine. Proven by <b style="font-weight:800">92 contract tests</b> + a one-command local e2e.</p>
+        <p class="body rv d5" style="font-weight:600">The same guard backs a <b style="font-weight:800">daily velocity limit</b>, a <b style="font-weight:800">per-transaction cap</b>, an <b style="font-weight:800">opt-in recipient allowlist</b>, and a <b style="font-weight:800">per-recipient sub-budget</b> — so a prompt-injected agent told to "pay 0xAttacker $5" <b style="font-weight:800">still reverts</b> (<code>RecipientNotAllowed</code>) even though the amount, budget, and daily limit are all fine. Proven by <b style="font-weight:800">106 contract tests</b> + a one-command local e2e.</p>
       </div>
     </section>
 
@@ -354,7 +354,7 @@
         <div class="grid rv d3" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,185px),1fr))">
           <div class="card flat step"><div class="snum">1</div><div class="cell-title">Connect</div><p class="cell-body">One line in Claude:<br /><code style="font-size:0.78em;word-break:break-all">claude mcp add --transport http stablesettle &lt;url&gt;/mcp</code><br />(+ auth token). That's the setup.</p><span class="cell-tag">one command</span></div>
           <div class="card step" style="background:var(--green)"><div class="snum">2</div><div class="cell-title">Spawn</div><p class="cell-body">Ask: <i>“Spawn an agent — $2 budget, $1/tx.”</i> → Circle wallet + AgentVault + ENS, ~15s. <a href="https://testnet.arcscan.app/tx/0x075978d367fd25ebf9c5a8969c000265b3de82e6e454cc3cea20045758da910f" target="_blank" rel="noopener" style="color:var(--black);text-decoration:underline">✓ deploy ↗</a></p><span class="cell-tag">spawn_agent</span></div>
-          <div class="card flat step"><div class="snum">3</div><div class="cell-title">Fund</div><p class="cell-body"><i>“Top up $5.”</i> → USDC into the <b>vault</b>; the agent wallet holds only <b>gas dust</b>.</p><span class="cell-tag">fund_agent</span></div>
+          <div class="card flat step"><div class="snum">3</div><div class="cell-title">Fund</div><p class="cell-body"><i>“Top up $5.”</i> → USDC to the <b>vault address</b> (yours, or any wallet); the agent wallet holds only <b>gas dust</b>.</p><span class="cell-tag">fund_agent</span></div>
           <div class="card flat step"><div class="snum">4</div><div class="cell-title">Delegate</div><p class="cell-body"><i>“Pay $0.30 / buy via x402.”</i> Under cap pays; <b>$1.50 over the $1 cap reverts</b>. <a href="https://testnet.arcscan.app/tx/0x20d1e3f2c7588b4d0802f1556054bfdf214785765c2617420a90a240d6d61d11" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:underline">✓ ↗</a> · <a href="https://testnet.arcscan.app/tx/0xc0d8b3e5a3ab4aab483b9051cbc70869032fa2f191c44e14803c1511061cc27d" target="_blank" rel="noopener" style="color:var(--pink);text-decoration:underline">⛔ ↗</a></p><span class="cell-tag">agent_pay</span></div>
           <div class="card flat step"><div class="snum">5</div><div class="cell-title">Control</div><p class="cell-body"><i>“Withdraw / revoke.”</i> Owner-only; withdraw goes <b>only</b> to your fixed cold address.</p><span class="cell-tag">owner</span></div>
         </div>
@@ -441,7 +441,7 @@
         <h2 class="lg rv d2">Not a logo soup.<br />Each piece <span class="hl-green">kills a fear</span>.</h2>
         <div class="grid g3 rv d3">
           <div class="card flat"><div class="cell-tag">"what if it overspends?"</div><div class="cell-title">AgentVault · Arc</div><p class="cell-body">The cap is a Solidity invariant — an over-budget spend <b>reverts</b>. Even a stolen key can't cross it.</p></div>
-          <div class="card flat"><div class="cell-tag">"who is this agent? what can it do?"</div><div class="cell-title">ENS identity</div><p class="cell-body">A human-readable name — <b>trader-bot.stablesettle.eth</b> — with its spend policy in on-chain text records. Look it up, don't trust an anonymous 0x.</p></div>
+          <div class="card flat"><div class="cell-tag">"who is this agent? what can it do?"</div><div class="cell-title">ENS identity</div><p class="cell-body">A human-readable name — <b>trader-bot.stablesettle.eth</b> — with its spend policy in ENS text records. <b>The owner edits ENS; the contract enforces it.</b> Look it up, don't trust an anonymous 0x.</p></div>
           <div class="card flat"><div class="cell-tag">"what if it goes rogue — who's accountable?"</div><div class="cell-title">World ID</div><p class="cell-body">A real, unique human vouches at spawn; the <b>nullifier on-chain</b> is the trail. One human → one agent.</p></div>
           <div class="card flat"><div class="cell-tag">"whose keys &amp; funds does it hold?"</div><div class="cell-title">Circle wallet</div><p class="cell-body">Its <b>own isolated wallet</b> — never your main treasury. The blast radius is one agent.</p></div>
           <div class="card" style="background:var(--yellow)"><div class="cell-tag">"how do I actually run it?"</div><div class="cell-title">MCP</div><p class="cell-body">One command inside Claude — <b>spawn, pay, inspect</b>. No dashboard to babysit.</p></div>
@@ -455,8 +455,8 @@
         <span class="label l-yellow rv d1">13 — What's built</span>
         <h2 class="lg rv d2">This is <span class="hl-pink">not</span> vaporware.</h2>
         <div class="grid g2 rv d3">
-          <div class="card flat"><p class="cell-body"><b>AgentVault.sol</b> — lifetime cap + per-tx cap + daily velocity limit + <b>withdraw locked to a cold address</b> + <b>opt-in recipient allowlist</b> + on-chain health view + non-bricking fee. <b>56 tests.</b></p></div>
-          <div class="card flat"><p class="cell-body"><b>StableSettleEscrow</b> — settlement, disputes. <b>92 tests repo-wide.</b></p></div>
+          <div class="card flat"><p class="cell-body"><b>AgentVault.sol</b> — lifetime cap + per-tx cap + daily velocity limit + <b>opt-in recipient allowlist</b> + <b>per-recipient sub-budget</b> + <b>withdraw locked to a cold address</b> + on-chain health view + non-bricking fee. <b>70 tests.</b></p></div>
+          <div class="card flat"><p class="cell-body"><b>StableSettleEscrow</b> — settlement, disputes. <b>106 tests repo-wide.</b></p></div>
           <div class="card" style="background:var(--green)"><p class="cell-body"><b>Anti-theft hardening</b> — ownership set by <b>server config, never a model argument</b> (no prompt-injection takeover); withdraw can't be redirected; agents <b>born with a 24h velocity limit</b>.</p></div>
           <div class="card flat"><p class="cell-body"><b>MCP server</b> — spawn_agent / fund_agent / topup_gas / agent_pay / agent_pay_x402 / get_agent.</p></div>
           <div class="card flat"><p class="cell-body"><b>x402 nanopayments</b> — agent buys a real service; the toll routes through the cap. <b>e2e 8/8.</b></p></div>
@@ -511,16 +511,48 @@
           <div><span class="tool">setCap</span>(newCap) <span class="c"># raise / lower the lifetime budget</span> <span class="c">·</span> <span class="tool">setMaxPerSpend</span>(limit) <span class="c"># per-tx cap</span></div>
           <div><span class="tool">setDailyLimit</span>(limit) <span class="c"># 24h velocity cap</span> <span class="c">·</span> <span class="tool">revoke</span>() <span class="c"># freeze</span> <span class="c">·</span> <span class="tool">withdraw</span>(amount) <span class="c"># → ALWAYS the fixed cold addr</span></div>
         </div>
-        <p class="body rv d4" style="font-weight:600">The chain of custody: the <b>faucet funds your deployer/owner</b> → <code>fund</code>/<code>gas</code> at spawn (or <code>fund_agent</code>/<code>topup_gas</code>) move it <b>into the vault &amp; agent</b> — or fund the vault from <b>your own wallet</b>, fully non-custodial. Money <b>out</b> is only ever a <b>capped spend</b> or a <b>withdraw to one fixed cold address</b>, even with a stolen key. You ask in English; each call is a <b>real tx on Arc</b> (click any hash).</p>
+        <p class="body rv d4" style="font-weight:600">The chain of custody: the <b>faucet funds your deployer/owner</b> → <code>fund</code>/<code>gas</code> at spawn (or <code>fund_agent</code>/<code>topup_gas</code>) move it <b>into the vault &amp; agent</b> — or just <b>send USDC to the vault's own address</b> from your own wallet (a plain transfer; the contract spends against its live balance), fully non-custodial. The vault is born <b>empty</b> — a prepaid card, not a credit line. Money <b>out</b> is only ever a <b>capped spend</b> or a <b>withdraw to one fixed cold address</b>, even with a stolen key. You ask in English; each call is a <b>real tx on Arc</b> (click any hash).</p>
       </div>
     </section>
 
-    <!-- ░ 16 · CLOSE ░ -->
+    <!-- ░ 16 · ROADMAP ░ -->
+    <section class="slide g-pink" aria-label="Roadmap">
+      <div class="deco" style="width:clamp(50px,6vw,90px);height:clamp(50px,6vw,90px);background:var(--blue);top:10%;right:10%;transform:rotate(-8deg)"></div>
+      <div class="stack">
+        <span class="label l-white rv d1">16 — Roadmap</span>
+        <h2 class="lg rv d2">Bound the outcome <span class="hl-green">today</span>.<br />Grow into a treasury <span class="hl-yellow">tomorrow</span>.</h2>
+        <div class="grid g2 rv d3">
+          <div class="card" style="background:var(--green)">
+            <div class="cell-tag">Phase 0 · shipped ✓</div>
+            <div class="cell-title" style="margin:0.35em 0">The firewall, live on Arc</div>
+            <p class="cell-body">5 on-chain limits (lifetime · per-tx · 24h velocity · allowlist · <b>per-recipient sub-budget</b>) + cold-address withdraw + <b>non-custodial owner binding</b> + ENS · World ID · Circle. <b>106 tests, end-to-end.</b></p>
+          </div>
+          <div class="card flat">
+            <div class="cell-tag">Phase 1 · next — same enforcement</div>
+            <div class="cell-title" style="margin:0.35em 0">More granularity &amp; audit trail</div>
+            <p class="cell-body"><b>Per-category budgets</b> (build on the shipped per-recipient caps — <code>spend()</code> already sees <code>to</code>, so it bounds <i>who gets how much</i>, not just how much) · <b>ENS-text-record allowlists</b> · an optional spend <b>memo</b> for a human audit trail. <span style="opacity:0.65">No new trust — "category" is owner-assigned, not chain-inferred.</span></p>
+          </div>
+          <div class="card flat">
+            <div class="cell-tag">Phase 2 · multi-user → prod</div>
+            <div class="cell-title" style="margin:0.35em 0">A wrapper, not a rebuild</div>
+            <p class="cell-body"><b>Signup + embedded wallet</b> (Dynamic / Circle passkey, Arc ✓) issues each user their own owner address; KMS-backed key custody, hosting, rate limits. <span style="opacity:0.65">The contract, firewall &amp; MCP tools don't change.</span></p>
+          </div>
+          <div class="card" style="background:var(--cream)">
+            <div class="cell-tag">Phase 3 · horizon</div>
+            <div class="cell-title" style="margin:0.35em 0">Autonomous yield treasuries</div>
+            <p class="cell-body">Deposit idle USDC → agent <b>auto-earns on-chain yield</b> → pulls back on risk — every move still bounded by the firewall. Monetize the <i>yield</i>, never the budget. <span style="opacity:0.65">Gated on a security audit.</span></p>
+          </div>
+        </div>
+        <div class="card rv d4" style="background:var(--black);color:var(--white);box-shadow:8px 8px 0 var(--yellow)"><p class="cell-body" style="color:var(--white)"><b>Deliberately out of scope</b> — intent ZK-proofs · AI credit lines · oracle blocklists. We <b style="font-weight:800">bound the outcome, we don't trust the intent</b> — scope creep that dilutes that claim stays cut.</p></div>
+      </div>
+    </section>
+
+    <!-- ░ 17 · CLOSE ░ -->
     <section class="slide g-black" aria-label="The ask">
       <div class="star" style="width:clamp(60px,8vw,120px);height:clamp(60px,8vw,120px);background:var(--yellow);top:10%;right:9%;transform:rotate(-12deg);border-color:var(--white)"></div>
       <div class="stack">
         <img src="logo.jpg" alt="StableSettle" class="rv d1" style="width:clamp(56px,7vw,90px);height:auto;align-self:flex-start;border:3px solid var(--white);box-shadow:4px 4px 0 var(--white);background:var(--white)" />
-        <span class="label l-pink rv d1">16 — The ask</span>
+        <span class="label l-pink rv d1">17 — The ask</span>
         <div class="close-card rv d2">
           <h2 class="xl" style="color:var(--white)">Make it safe<br />to let AI run<br /><span style="color:var(--yellow)">the money — and grow it.</span></h2>
         </div>
@@ -529,7 +561,7 @@
       </div>
     </section>
 
-    <div class="counter" aria-hidden="true">01 / 16</div>
+    <div class="counter" aria-hidden="true">01 / 17</div>
     <nav class="nav" aria-label="Slide navigation"><button id="prev" aria-label="Previous">‹</button><button id="next" aria-label="Next">›</button></nav>
 
     <script>

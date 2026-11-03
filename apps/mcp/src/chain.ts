@@ -183,6 +183,47 @@ export async function enableAllowlist(vault: Address, recipients: Address[]): Pr
   return batchHash
 }
 
+/**
+ * Owner sets a per-recipient sub-budget: "this vendor may receive at most $X total". HUMAN_OWNER_ROLE.
+ * Uses `setAllowedWithCap` so the recipient is approved AND capped in one tx (the common flow); pass a
+ * 0 cap to approve without a sub-budget. The server signs as the deployer, so this applies only when the
+ * configured owner is the deployer (otherwise the cold owner sets it from their own wallet).
+ */
+export async function setRecipientCap(
+  vault: Address,
+  recipient: Address,
+  capUnits: bigint,
+): Promise<Hash> {
+  const { publicClient, walletClient } = clients()
+  const account = walletClient.account!
+  const hash = await walletClient.writeContract({
+    account,
+    chain: walletClient.chain,
+    address: vault,
+    abi: agentVaultAbi,
+    functionName: 'setAllowedWithCap',
+    args: [recipient, true, capUnits],
+  })
+  await publicClient.waitForTransactionReceipt({ hash })
+  return hash
+}
+
+/** Read a single recipient's remaining per-recipient sub-budget. max uint256 means no cap is set. */
+export async function readRecipientCap(
+  vault: Address,
+  recipient: Address,
+): Promise<{ cap: bigint; spent: bigint; remaining: bigint }> {
+  const { publicClient } = clients()
+  const read = <T>(functionName: string) =>
+    publicClient.readContract({ address: vault, abi: agentVaultAbi, functionName, args: [recipient] }) as Promise<T>
+  const [cap, spent, remaining] = await Promise.all([
+    read<bigint>('recipientCap'),
+    read<bigint>('recipientSpent'),
+    read<bigint>('recipientRemaining'),
+  ])
+  return { cap, spent, remaining }
+}
+
 /** Send a small amount of USDC to the agent wallet so it can pay gas (USDC is gas on Arc). */
 export async function topUpGas(agent: Address, usdc: Address, amountUnits: bigint): Promise<Hash> {
   const { publicClient, walletClient } = clients()
@@ -208,13 +249,16 @@ function friendlySpendRevert(e: unknown, to: Address): string | undefined {
   const revert = e.walk((err) => err instanceof ContractFunctionRevertedError)
   if (!(revert instanceof ContractFunctionRevertedError)) return undefined
   const name = revert.data?.errorName
-  const a = (revert.data?.args ?? []) as readonly bigint[]
+  const a = (revert.data?.args ?? []) as readonly unknown[]
   const usd = (v: unknown) => `$${fromUsdcUnits(v as bigint)}`
   switch (name) {
     case 'BudgetExceeded':
       return `Reverted on-chain: BudgetExceeded — requested ${usd(a[0])} but only ${usd(a[1])} of the lifetime budget cap remains. The vault refused it; no funds moved.`
     case 'RecipientNotAllowed':
       return `Reverted on-chain: RecipientNotAllowed(${to}) — the recipient allowlist is ON and this address is not on it. Even within budget, the agent cannot pay an address the owner didn't approve.`
+    case 'RecipientCapExceeded':
+      // args: (address recipient, uint256 requested, uint256 remaining)
+      return `Reverted on-chain: RecipientCapExceeded(${to}) — requested ${usd(a[1])} but this recipient has only ${usd(a[2])} left under its per-recipient sub-budget. The destination is approved and the lifetime budget is fine, yet this specific vendor has hit its own ceiling.`
     case 'DailyLimitExceeded':
       return `Reverted on-chain: DailyLimitExceeded — requested ${usd(a[0])} but only ${usd(a[1])} remains in the rolling 24h velocity limit. The agent can't burst-drain, even to an approved address.`
     case 'PerSpendLimitExceeded':

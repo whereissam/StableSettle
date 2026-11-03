@@ -15,12 +15,14 @@ import {
 import { BudgetMeter } from '@/components/budget-meter'
 import { StatCard } from '@/components/stat-card'
 import { useAgentVault } from '@/hooks/useAgentVault'
+import { useAgentEns } from '@/hooks/useAgentEns'
 import { useFundVault } from '@/hooks/useFundVault'
 import { UINT256_MAX, type VaultHealth } from '@/lib/agentVault'
+import { ensNetwork } from '@/lib/ens'
 import { addressUrl, txUrl } from '@/lib/contract'
 import { formatUsd, shortenAddress, shortenHash, toUsdcUnits } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { ShieldCheck, ShieldAlert, ShieldX, ExternalLink, Wallet } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, ShieldX, ExternalLink, Wallet, Globe, BadgeCheck } from 'lucide-react'
 
 const DEFAULT_VAULT = (import.meta.env.VITE_AGENT_VAULT_ADDRESS as string | undefined) ?? ''
 
@@ -42,6 +44,11 @@ export function AgentsPage() {
   const hasDaily = !!v && v.dailyLimit > 0n
   const hasPerTx = !!v && v.maxPerSpend > 0n
   const health = v ? HEALTH_META[v.health] : null
+
+  const { data: ens, isLoading: ensLoading } = useAgentEns(v?.agentName)
+  const ensMatches =
+    !!ens?.resolvedAddress && !!v && ens.resolvedAddress.toLowerCase() === v.address.toLowerCase()
+  const ensResolved = !!ens && (!!ens.resolvedAddress || !!ens.spendPolicy || !!ens.budgetCap)
 
   const [fundAmount, setFundAmount] = useState('')
   const { fund, pending: funding, connected } = useFundVault(valid ? (input as Address) : undefined)
@@ -154,6 +161,60 @@ export function AgentsPage() {
                   hint={hasDaily ? 'Left in the current 24h window' : 'No daily limit set'}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Globe className="h-4 w-4 text-muted-foreground" /> ENS identity — resolved live
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Read live from <span className="font-medium text-foreground">{ensNetwork}</span> with a
+                standard ENS client (CCIP-Read) — not our backend. The name the vault records on Arc,
+                resolved + its spend-policy read back through public ENS infrastructure. The same{' '}
+                <code className="rounded bg-secondary px-1">stablesettle-allowlist</code> record is what
+                drives the on-chain allowlist via <code className="rounded bg-secondary px-1">sync_allowlist_from_ens</code>.
+              </p>
+              {ensLoading && <Skeleton className="h-16 w-full" />}
+              {!ensLoading && ensResolved && (
+                <div className="space-y-2 rounded-lg border bg-secondary/30 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-xs">{v.agentName}</span>
+                    {ensMatches ? (
+                      <Badge className="gap-1 border border-success/30 bg-success/10 text-success">
+                        <BadgeCheck className="h-3.5 w-3.5" /> resolves to the on-chain agent
+                      </Badge>
+                    ) : ens?.resolvedAddress ? (
+                      <Badge className="gap-1 border border-reserve/30 bg-reserve/10 text-reserve">
+                        resolves — address differs
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {ens?.resolvedAddress && (
+                    <div className="font-mono text-xs text-muted-foreground">→ {ens.resolvedAddress}</div>
+                  )}
+                  {(ens?.budgetCap || ens?.agentVault) && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">spend-policy (ENS text record): </span>
+                      <span className="font-medium">
+                        {ens?.budgetCap ? `cap $${ens.budgetCap}` : ''}
+                        {ens?.agentVault ? ` · vault ${shortenAddress(ens.agentVault as Address)}` : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!ensLoading && !ensResolved && (
+                <p className="text-xs text-muted-foreground">
+                  Not resolving yet — the parent domain's resolver isn't pointed at NameStone (or no{' '}
+                  <code className="rounded bg-secondary px-1">NAMESTONE_API_KEY</code>). The name is still
+                  recorded on-chain in the vault (<code className="rounded bg-secondary px-1">agentName</code>);
+                  ENS just isn't serving it. See README → ENS setup.
+                </p>
+              )}
             </CardContent>
           </Card>
 

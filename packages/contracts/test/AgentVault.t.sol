@@ -316,7 +316,7 @@ contract AgentVaultTest is Test {
         vm.prank(agent);
         vault.spend(payee, 600e6);
 
-        assertEq(vault.spentToday(), 600e6);
+        assertEq(vault.spentLast24h(), 600e6);
         assertEq(vault.dailyRemaining(), 400e6);
         assertEq(usdc.balanceOf(payee), 600e6);
     }
@@ -352,12 +352,12 @@ contract AgentVaultTest is Test {
         vm.expectRevert(abi.encodeWithSelector(AgentVault.DailyLimitExceeded.selector, 1e6, 0));
         vault.spend(payee, 1e6);
 
-        // After 24h the window rolls and the full daily allowance is available again.
-        vm.warp(block.timestamp + 1 days);
+        // The window is rolling in whole hours: the spend frees up 24–25h after it was made.
+        vm.warp(block.timestamp + 25 hours);
         assertEq(vault.dailyRemaining(), 1_000e6);
         vm.prank(agent);
         vault.spend(payee, 1_000e6);
-        assertEq(vault.spentToday(), 1_000e6);
+        assertEq(vault.spentLast24h(), 1_000e6);
         assertEq(vault.spent(), 2_000e6); // lifetime spend still accumulates across windows
     }
 
@@ -607,6 +607,179 @@ contract AgentVaultTest is Test {
         vault.setAllowed(address(0), true);
     }
 
+    // ── per-recipient sub-budget ──────────────────────────────────────────────────
+
+    function test_recipientCap_defaultsOff() public {
+        // No per-recipient cap set → unlimited (only the lifetime cap applies).
+        assertEq(vault.recipientCap(payee), 0);
+        assertEq(vault.recipientRemaining(payee), type(uint256).max);
+        _fund(CAP);
+        vm.prank(agent);
+        vault.spend(payee, 1_000e6); // far above any per-recipient cap, but none is set
+        assertEq(usdc.balanceOf(payee), 1_000e6);
+    }
+
+    function test_recipientCap_underCap_pays() public {
+        _fund(CAP);
+        vm.prank(human);
+        vault.setRecipientCap(payee, 100e6); // vendor 0xpayee ≤ $100
+
+        vm.prank(agent);
+        vault.spend(payee, 60e6);
+        assertEq(usdc.balanceOf(payee), 60e6);
+        assertEq(vault.recipientSpent(payee), 60e6);
+        assertEq(vault.recipientRemaining(payee), 40e6);
+    }
+
+    function test_recipientCap_accumulatesUpToCap() public {
+        _fund(CAP);
+        vm.prank(human);
+        vault.setRecipientCap(payee, 100e6);
+
+        vm.startPrank(agent);
+        vault.spend(payee, 60e6);
+        vault.spend(payee, 40e6); // exactly hits the $100 cap
+        vm.stopPrank();
+        assertEq(vault.recipientSpent(payee), 100e6);
+        assertEq(vault.recipientRemaining(payee), 0);
+    }
+
+    function test_recipientCap_overCap_reverts_evenUnderBudget() public {
+        _fund(CAP);
+        vm.prank(human);
+        vault.setRecipientCap(payee, 100e6);
+
+        vm.startPrank(agent);
+        vault.spend(payee, 80e6);
+        // Lifetime budget is barely touched, but THIS recipient has $20 left → a $30 spend reverts.
+        vm.expectRevert(abi.encodeWithSelector(AgentVault.RecipientCapExceeded.selector, payee, 30e6, 20e6));
+        vault.spend(payee, 30e6);
+        vm.stopPrank();
+        assertEq(vault.recipientSpent(payee), 80e6, "a blocked spend must not move the recipient tally");
+        assertEq(vault.spent(), 80e6, "a blocked spend must not move the budget");
+    }
+
+    function test_recipientCap_isPerRecipient_notGlobal() public {
+        _fund(CAP);
+        address other = makeAddr("otherVendor");
+        vm.startPrank(human);
+        vault.setRecipientCap(payee, 50e6);
+        vault.setRecipientCap(other, 50e6);
+        vm.stopPrank();
+
+        vm.startPrank(agent);
+        vault.spend(payee, 50e6); // payee's cap exhausted
+        vault.spend(other, 50e6); // other still has its own full cap
+        vm.expectRevert(abi.encodeWithSelector(AgentVault.RecipientCapExceeded.selector, payee, 1e6, 0));
+        vault.spend(payee, 1e6);
+        vm.stopPrank();
+        assertEq(usdc.balanceOf(payee), 50e6);
+        assertEq(usdc.balanceOf(other), 50e6);
+    }
+
+    function test_recipientCap_uncappedRecipientUnaffected() public {
+        // A cap on `payee` must not constrain or record spend to a different, uncapped recipient.
+        _fund(CAP);
+        vm.prank(human);
+        vault.setRecipientCap(payee, 10e6);
+
+        vm.prank(agent);
+        vault.spend(stranger, 1_000e6); // uncapped → only the lifetime budget applies
+        assertEq(usdc.balanceOf(stranger), 1_000e6);
+        assertEq(vault.recipientSpent(stranger), 0, "uncapped recipients accrue no per-recipient tally");
+    }
+
+    function test_recipientCap_worksWithAllowlistOn() public {
+        // The intended combo: allowlist gates WHO, per-recipient cap gates HOW MUCH each one gets.
+        _fund(CAP);
+        vm.startPrank(human);
+        vault.setAllowlistEnabled(true);
+        vault.setAllowedWithCap(payee, true, 100e6);
+        vm.stopPrank();
+
+        assertTrue(vault.allowedRecipients(payee));
+        assertEq(vault.recipientCap(payee), 100e6);
+
+        vm.startPrank(agent);
+        vault.spend(payee, 100e6);
+        vm.expectRevert(abi.encodeWithSelector(AgentVault.RecipientCapExceeded.selector, payee, 1e6, 0));
+        vault.spend(payee, 1e6);
+        vm.stopPrank();
+    }
+
+    function test_recipientCap_canBeRaised() public {
+        _fund(CAP);
+        vm.prank(human);
+        vault.setRecipientCap(payee, 50e6);
+        vm.prank(agent);
+        vault.spend(payee, 50e6); // exhausts the cap
+
+        vm.prank(human);
+        vault.setRecipientCap(payee, 80e6); // raise it
+        assertEq(vault.recipientRemaining(payee), 30e6);
+        vm.prank(agent);
+        vault.spend(payee, 30e6);
+        assertEq(vault.recipientSpent(payee), 80e6);
+    }
+
+    function test_recipientCap_clearedWithZero() public {
+        _fund(CAP);
+        vm.prank(human);
+        vault.setRecipientCap(payee, 50e6);
+        vm.prank(agent);
+        vault.spend(payee, 50e6); // exhausts the cap
+
+        // Clearing the cap (0) removes the per-recipient ceiling entirely.
+        vm.prank(human);
+        vault.setRecipientCap(payee, 0);
+        assertEq(vault.recipientRemaining(payee), type(uint256).max);
+        vm.prank(agent);
+        vault.spend(payee, 1_000e6); // now bounded only by the lifetime budget
+        assertEq(usdc.balanceOf(payee), 1_050e6);
+    }
+
+    function test_setRecipientCap_onlyHuman() public {
+        bytes32 ownerRole = vault.HUMAN_OWNER_ROLE();
+        vm.prank(agent);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, agent, ownerRole)
+        );
+        vault.setRecipientCap(payee, 100e6);
+    }
+
+    function test_setRecipientCap_rejectsZeroAddress() public {
+        vm.prank(human);
+        vm.expectRevert(AgentVault.ZeroAddress.selector);
+        vault.setRecipientCap(address(0), 100e6);
+    }
+
+    function test_setRecipientCap_emitsEvent() public {
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit AgentVault.RecipientCapChanged(payee, 100e6);
+        vm.prank(human);
+        vault.setRecipientCap(payee, 100e6);
+    }
+
+    function test_setAllowedWithCap_setsBoth() public {
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit AgentVault.RecipientAllowedChanged(payee, true);
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit AgentVault.RecipientCapChanged(payee, 100e6);
+        vm.prank(human);
+        vault.setAllowedWithCap(payee, true, 100e6);
+        assertTrue(vault.allowedRecipients(payee));
+        assertEq(vault.recipientCap(payee), 100e6);
+    }
+
+    function test_setAllowedWithCap_onlyHuman() public {
+        bytes32 ownerRole = vault.HUMAN_OWNER_ROLE();
+        vm.prank(agent);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, agent, ownerRole)
+        );
+        vault.setAllowedWithCap(payee, true, 100e6);
+    }
+
     // ── protocol fee ──────────────────────────────────────────────────────────────
     // This test contract deployed the vault, so it holds FEE_ADMIN_ROLE (the "protocol").
 
@@ -685,5 +858,88 @@ contract AgentVaultTest is Test {
         assertEq(bt.balanceOf(payee), 1_000e6);
         assertEq(bt.balanceOf(protocol), 0);
         assertEq(v.spent(), 1_000e6);
+    }
+
+    // ── security review regressions (2026-11-03) ──────────────────────────────────
+
+    /// A stolen owner key must not be able to make itself the agent and drain the vault.
+    function test_ownerCannotGrantAgentRole() public {
+        _fund(CAP);
+        bytes32 role = vault.AGENT_ROLE();
+        vm.prank(human);
+        vm.expectRevert(AgentVault.AgentImmutable.selector);
+        vault.grantRole(role, stranger);
+        assertFalse(vault.hasRole(role, stranger));
+    }
+
+    /// Other roles are still grantable by the admin (the fee-admin liveness escape keeps working).
+    function test_ownerCanStillGrantOtherRoles() public {
+        bytes32 role = vault.FEE_ADMIN_ROLE();
+        vm.prank(human);
+        vault.grantRole(role, stranger);
+        assertTrue(vault.hasRole(role, stranger));
+    }
+
+    /// Spending a full allowance at the end of one 24h stretch and again right after must revert —
+    /// the old fixed window allowed ~2x the limit within seconds.
+    function test_dailyLimit_isRolling_noBoundaryBurst() public {
+        _fund(CAP);
+        vm.prank(human);
+        vault.setDailyLimit(100e6);
+        vm.warp(1_000_000);
+        vm.prank(agent);
+        vault.spend(payee, 1);
+        vm.warp(1_000_000 + 1 days - 1);
+        vm.prank(agent);
+        vault.spend(payee, 100e6 - 1);
+        vm.warp(1_000_000 + 1 days);
+        vm.prank(agent);
+        vm.expectRevert(abi.encodeWithSelector(AgentVault.DailyLimitExceeded.selector, 100e6, 0));
+        vault.spend(payee, 100e6);
+    }
+
+    /// Allowance frees up hour by hour as old spends age out, not all at once.
+    function test_dailyLimit_freesUpGradually() public {
+        _fund(CAP);
+        vm.prank(human);
+        vault.setDailyLimit(100e6);
+        uint256 t0 = 1_000_000 * 3600; // an hour boundary
+        vm.warp(t0);
+        vm.prank(agent);
+        vault.spend(payee, 40e6);
+        vm.warp(t0 + 10 hours);
+        vm.prank(agent);
+        vault.spend(payee, 60e6);
+        assertEq(vault.dailyRemaining(), 0);
+        vm.warp(t0 + 25 hours); // first spend is now 25h old, second 15h old
+        assertEq(vault.dailyRemaining(), 40e6);
+        vm.warp(t0 + 35 hours); // both aged out
+        assertEq(vault.dailyRemaining(), 100e6);
+    }
+
+    /// Fuzz: no sequence of spends puts more than dailyLimit into any 24h window.
+    function testFuzz_dailyLimit_neverExceededInAny24h(uint32[8] memory gaps, uint64[8] memory amounts) public {
+        _fund(CAP);
+        uint256 limit = 100e6;
+        vm.prank(human);
+        vault.setDailyLimit(limit);
+        uint256[8] memory ts;
+        uint256[8] memory paid;
+        uint256 t = 1_000_000;
+        for (uint256 i = 0; i < 8; i++) {
+            t += uint256(gaps[i]) % 2 days;
+            vm.warp(t);
+            uint256 amt = bound(amounts[i], 1, limit);
+            vm.prank(agent);
+            try vault.spend(payee, amt) {
+                paid[i] = amt;
+            } catch {}
+            ts[i] = t;
+        }
+        for (uint256 i = 0; i < 8; i++) {
+            uint256 sum;
+            for (uint256 j = i; j < 8 && ts[j] < ts[i] + 1 days; j++) sum += paid[j];
+            assertLe(sum, limit);
+        }
     }
 }

@@ -934,6 +934,22 @@
   },
   {
     "type": "error",
+    "name": "DisputeWindowClosed",
+    "inputs": [
+      {
+        "name": "nowTs",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "closedAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidState",
     "inputs": []
   },

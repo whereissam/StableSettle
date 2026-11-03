@@ -181,7 +181,27 @@ autonomy" — 把無限自主權壓縮成受控自主權).**
   fee + ENS/World ID provenance. **56 AgentVault tests / 92 repo-wide.**
 - Owner resolved from **server config, never a tool argument** (no prompt-injection takeover).
 - MCP tools: `spawn_agent` (cap/maxPerSpend/dailyLimit/allowlist/fund/gas) · `fund_agent` ·
-  `topup_gas` · `agent_pay` · `agent_pay_x402` · `get_agent`. Offline e2e 15/15.
+  `topup_gas` · `agent_pay` · `agent_pay_x402` · `get_agent` · `sync_allowlist_from_ens`
+  (Tier-2: ENS policy → on-chain allowlist). Offline e2e 15/15.
+
+## Security review fixes (2026-11-03)
+Focused review of `AgentVault.sol` + `StableSettleEscrow.sol` found 3 confirmed issues (PoC tests):
+- [x] **Owner key could drain the vault** — `human` holds `DEFAULT_ADMIN_ROLE`, so a stolen owner key
+  could `grantRole(AGENT_ROLE, attacker)`, lift the limits and `spend` everything to itself, breaking
+  the "funds only ever go home to `ownerPayout`" invariant. Fix: the agent is fixed at construction —
+  `grantRole(AGENT_ROLE, …)` always reverts. — ✅ 2026-11-03 `fix/contract-security-review`:
+  `AgentVault.grantRole` override + `AgentImmutable` error; tests `test_ownerCannotGrantAgentRole`.
+- [x] **Daily limit was a fixed window, not rolling** — the agent could spend ~2× `dailyLimit` within
+  seconds across a window boundary. Fix: hourly-bucket rolling window (any 24h ≤ limit). — ✅ 2026-11-03
+  `fix/contract-security-review`: 25-slot hour ring buffer; `windowStart`/`spentToday` replaced by `spentLast24h()` (ABI
+  change; no TS callers). A spend frees up 24–25h later. Regression + fuzz tests added.
+- [x] **Customer could dispute after the refund window closed** — freezing a payout already due.
+  Fix: `raiseDispute` by the customer reverts once `deliveredAt + refundWindowSeconds` has passed. — ✅
+  2026-11-03 `fix/contract-security-review`: `DisputeWindowClosed` error; oracle can still escalate late. Demo Scenario B
+  unaffected (disputes from `Funded` / via the oracle wallet). **114/114 Foundry tests pass.**
+- [ ] Redeploy: contracts are immutable — the live Arc escrow and already-spawned vaults keep the old code.
+- [ ] TS typecheck after the ABI regen (`bun install` then `bun run typecheck`) — skipped, deps not installed.
+- [ ] Consider a gas check: `spend` with a daily limit now reads 25 storage slots (~50k gas extra).
 
 ## Now — highest-ROI before submission (presentation, NOT more contract layers)
 - [ ] **Pitch slide 1 rewrite** around *controlled autonomy* + the AI-vs-human asymmetry
@@ -198,8 +218,35 @@ Honest verdicts so these are captured without becoming a reason not to ship.
 - [ ] **Spend audit memo** — optional `memo`/`reasonHash` on `spend`, emitted in the event. Frame as
   a *human audit trail* (what the agent claimed it bought), **not** proof of honest intent — a
   compromised agent fakes the memo too. ~30 min; useful for the dashboard "I paid, but where/why" story.
-- [ ] **ENS-profile-sourced allowlist** — owner publishes approved recipients in ENS text records; the
-  vault/UI reads them. Composes identity + policy; owner-only updates. (Roadmap line on the deck.)
+- [x] **ENS-profile-sourced allowlist (Tier 2 — ENS as policy source)** — ✅ **BUILT.** Owner publishes
+  approved recipients in an ENS text record (`stablesettle-allowlist`); `sync_allowlist_from_ens` reads
+  them back via a standard CCIP-Read ENS client and writes them into the on-chain AgentVault allowlist,
+  which the contract enforces. ENS is now **load-bearing** (pull it out → the firewall has no policy
+  source), not decorative. Policy ENS name = SERVER config (`ENS_POLICY_NAME`), never a tool arg, so a
+  prompt-injected model can't point it at an attacker-controlled name. Web **Agent Vaults** page also
+  resolves the agent's ENS name live + shows the spend-policy text records (write→read round-trip).
+  Files: `apps/mcp/src/ens-read.ts`, `sync_allowlist_from_ens` in `index.ts`; `apps/web/src/lib/ens.ts`
+  + `useAgentEns`. This is the ENS-track answer: ENS = the agent's portable identity + policy layer
+  (ties to ENSIP-26 Agent Text Records), not just `name.eth` resolution.
+- **Granular sub-budgets (per-recipient / per-category caps)** — the differentiator over a flat
+  Safe Guard / Session Key limit: our `spend()` already sees `to`, so the contract can enforce
+  *who gets how much*, not just *how much total*. Three tiers, easy → hard:
+  - [x] **Per-recipient cap** — ✅ **BUILT (2026-06-15).** "vendor 0xABC ≤ $100", enforced on-chain.
+    Implemented as **parallel `recipientCap`/`recipientSpent` mappings** (not a struct rewrite of the
+    `bool` allowlist) so the existing `allowedRecipients` getter/ABI and all prior tests stay green —
+    fully backward compatible. New: `setRecipientCap` + `setAllowedWithCap` (approve + cap in one tx),
+    `recipientRemaining` view, `RecipientCapExceeded` error, `RecipientCapChanged` event. Spend records
+    per-recipient only while a cap is set (matches `maxPerSpend`/`dailyLimit` "future-spends-only"
+    semantics). **+14 Foundry tests (70 AgentVault / 106 repo-wide), +4 local-e2e checks (19/19).**
+    Wired through MCP: `set_recipient_cap` tool + `readRecipientCap` + named revert in `simulateSpend`.
+  - **Per-category budget** — owner tags each allowlisted recipient with a `categoryId`; each category
+    gets its own sub-budget under the lifetime cap. More state, same revert model.
+  - ⚠️ **True merchant-category (Visa-MCC style) is NOT on-chain-inferable** — the chain can't know what
+    a `0x…` address *sells*. "Category" = an owner-assigned (or ENS-text-record-sourced) mapping, not
+    something the contract derives. Be honest about this in the pitch; don't claim auto-classification.
+  - **Demo stance: roadmap + Q&A answer, do NOT build before submission.** The shipped four limits
+    (lifetime + per-tx + daily + allowlist) already prove the thesis; granularity is config on the same
+    enforcement. Half-built granularity risks a live-demo bug for no narrative gain.
 - [x] **Per-user owner binding (non-custodial)** — ✅ **BUILT.** Owner/payout = the connecting user's
   OWN address (not the operator). See the "Multi-user → prod" section below. (We landed on
   *non-custodial* — owner = the user's own wallet — which is stronger than the earlier "custodial"

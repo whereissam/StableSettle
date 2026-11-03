@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 // StableSettle MCP server — arc:spawn-agent.
-// Exposes three tools inside Claude: spawn_agent, agent_pay, get_agent. The budget cap that makes
-// this safe lives in AgentVault.sol on Arc; this server just orchestrates wallet + deploy + reads.
+// Exposes tools inside Claude: spawn_agent, agent_pay, agent_pay_x402, fund_agent, topup_gas,
+// get_agent, sync_allowlist_from_ens. The budget cap that makes this safe lives in AgentVault.sol on
+// Arc; this server just orchestrates wallet + deploy + reads (and reads policy back from ENS).
 
 import { existsSync, readFileSync } from 'node:fs'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -24,6 +25,7 @@ if (existsSync(envFile)) {
 import {
   chainConfig,
   defaultDailyLimitBps,
+  ensPolicyName,
   fromUsdcUnits,
   MAX_USDC_DOLLARS,
   ownerAddress,
@@ -35,15 +37,18 @@ import {
   deployerAddress,
   enableAllowlist,
   fundVault,
+  readRecipientCap,
   readVault,
   setDailyLimit,
   setMaxPerSpend,
+  setRecipientCap,
   simulateSpend,
   topUpGas,
   usdcBalanceOf,
 } from './chain.ts'
 import { createAgentWallet, executeSpend } from './circle.ts'
 import { ensNameFor, registerEnsSubname, verifyHuman } from './identity.ts'
+import { readEnsAllowlist } from './ens-read.ts'
 import type { WorldIdProof } from './worldid.ts'
 import { deploymentCard, spendCard, statusCard, x402Card } from './card.ts'
 import { fetchWithX402 } from './x402.ts'
@@ -86,7 +91,7 @@ function resolveUsdc(override?: string): `0x${string}` {
 // (a known TS2589 with @modelcontextprotocol/sdk). Handler args are typed explicitly to compensate.
 
 /**
- * Build a fully-configured StableSettle MCP server with all six tools registered. Called once per
+ * Build a fully-configured StableSettle MCP server with all seven tools registered. Called once per
  * stdio process and once per Streamable-HTTP session, so every connection gets an isolated instance.
  */
 export function buildServer(ctx?: ServerContext) {
@@ -543,6 +548,156 @@ server.registerTool(
       if (!record) throw new Error(`No agent named "${name}".`)
       const state = await readVault(record.vault)
       return text(statusCard(record, state))
+    } catch (e) {
+      return errorText(e)
+    }
+  },
+)
+
+// ── sync_allowlist_from_ens ────────────────────────────────────────────────────
+// Tier-2: ENS is the policy SOURCE OF TRUTH. The owner publishes the approved-recipient list in an
+// ENS text record; this reads it back (CCIP-Read) and writes it into the on-chain AgentVault allowlist,
+// where the contract enforces it. ENS is load-bearing — pull it out and the firewall has no policy
+// source. The policy ENS name comes from SERVER config (ENS_POLICY_NAME), never a tool argument, so a
+// prompt-injected model can't point it at an attacker-controlled name that allowlists the attacker.
+
+interface SyncAllowlistArgs {
+  name: string
+}
+
+const syncAllowlistInput: z.ZodRawShape = {
+  name: z.string().min(1).describe('The agent whose on-chain allowlist to sync from ENS, e.g. "research-bot".'),
+}
+
+server.registerTool(
+  'sync_allowlist_from_ens',
+  {
+    description:
+      "Sync an agent's on-chain recipient allowlist FROM its ENS policy record. The owner publishes the " +
+      'approved recipients in an ENS text record (`stablesettle-allowlist`); this reads them back via a ' +
+      'standard ENS client and writes them into the AgentVault allowlist, which the contract enforces. ' +
+      'ENS is the editable policy source; the chain is the trustless gate. Returns what was synced.',
+    inputSchema: syncAllowlistInput as any,
+  },
+  async (args: SyncAllowlistArgs) => {
+    const { name } = args
+    try {
+      const record = await getAgent(name)
+      if (!record) throw new Error(`No agent named "${name}". Spawn it first with spawn_agent.`)
+
+      // Policy source is server-config (or the agent's own ENS name) — NEVER a tool argument.
+      const policyName = ensPolicyName() ?? record.ensName
+      const { addresses, raw, key } = await readEnsAllowlist(policyName)
+
+      if (!raw) {
+        throw new Error(
+          `No \`${key}\` text record found on ENS name "${policyName}". Publish the approved recipients ` +
+            `there (a JSON array or comma-separated list of 0x addresses), then re-run. ` +
+            `This is the point: the allowlist lives in ENS, edited by the owner — not hard-coded here.`,
+        )
+      }
+      if (addresses.length === 0) {
+        throw new Error(`The \`${key}\` record on "${policyName}" had no valid addresses. Raw value: ${JSON.stringify(raw)}`)
+      }
+
+      // The on-chain allowlist is HUMAN_OWNER_ROLE-only; the server signs as the deployer, so this can
+      // only apply when the server IS the owner. With a separate cold owner, return instructions instead.
+      const serverOwns = getAddress(record.human) === deployerAddress()
+      const list = addresses.map((a) => `\`${a}\``).join(', ')
+      if (!serverOwns) {
+        return text(
+          `## 🏷 ENS allowlist for \`${name}\` (read-only)\n\n` +
+            `Read **${addresses.length}** recipient(s) from \`${policyName}\` → \`${key}\`: ${list}\n\n` +
+            `> Not applied: only the vault owner (${record.human}) can set the allowlist. Call ` +
+            `\`setAllowlistEnabled(true)\` + \`setAllowedBatch([...], true)\` from the owner wallet with these addresses.`,
+        )
+      }
+
+      await enableAllowlist(record.vault, addresses)
+      const state = await readVault(record.vault)
+      return text(
+        `## 🏷 Synced \`${name}\`'s allowlist from ENS\n\n` +
+          `**Source:** \`${policyName}\` → text record \`${key}\` (read live via CCIP-Read)\n\n` +
+          `**Now allowed on-chain (${addresses.length}):** ${list}\n\n` +
+          `The allowlist is **enforced by AgentVault** — a spend to any other address reverts ` +
+          `\`RecipientNotAllowed\`, even within budget. Edit the ENS record and re-run to update it.\n\n` +
+          `${statusCard(record, state)}`,
+      )
+    } catch (e) {
+      return errorText(e)
+    }
+  },
+)
+
+// ── set_recipient_cap ──────────────────────────────────────────────────────────
+// Granular sub-budget: bound how much a SINGLE approved recipient can receive ("vendor 0xABC ≤ $100"),
+// not just the total. The allowlist says WHO may be paid; this says HOW MUCH each one gets. Enforced on
+// every spend by AgentVault — over the per-recipient cap reverts RecipientCapExceeded even when the
+// lifetime budget is untouched. Owner-only (HUMAN_OWNER_ROLE); the server signs as the deployer, so it
+// applies only when the configured owner IS the deployer (otherwise the cold owner sets it themselves).
+
+interface SetRecipientCapArgs {
+  name: string
+  recipient: string
+  cap: number
+}
+
+const setRecipientCapInput: z.ZodRawShape = {
+  name: z.string().min(1).describe('The agent whose vault to configure, e.g. "research-bot".'),
+  recipient: z.string().describe('The recipient address (0x…) to cap. It is also approved on the allowlist in the same call.'),
+  cap: z
+    .number()
+    .nonnegative()
+    .finite()
+    .max(MAX_USDC_DOLLARS)
+    .describe('Per-recipient lifetime ceiling in USDC dollars — this recipient may receive at most this much total. Pass 0 to remove the sub-budget (approve without a per-recipient cap).'),
+}
+
+server.registerTool(
+  'set_recipient_cap',
+  {
+    description:
+      'Set a PER-RECIPIENT spend cap on an agent — "this vendor may receive at most $X total" — and approve ' +
+      'the recipient in the same call. This is the granular complement to the allowlist: the allowlist bounds ' +
+      'WHO the agent may pay, the per-recipient cap bounds HOW MUCH each one gets. Enforced on-chain by AgentVault: ' +
+      'a spend over the per-recipient cap reverts (RecipientCapExceeded) even when the lifetime budget is fine. ' +
+      'Owner-only — applied only when the configured owner is the deployer. Pass cap 0 to clear it.',
+    inputSchema: setRecipientCapInput as any,
+  },
+  async (args: SetRecipientCapArgs) => {
+    const { name, cap } = args
+    try {
+      const record = await getAgent(name)
+      if (!record) throw new Error(`No agent named "${name}". Spawn it first with spawn_agent.`)
+      const recipient = requireAddress(args.recipient, 'recipient')
+
+      // HUMAN_OWNER_ROLE-only; the server signs as the deployer, so this can only apply when the server
+      // IS the owner. With a separate cold owner, return instructions for the owner to run it themselves.
+      const serverOwns = getAddress(record.human) === deployerAddress()
+      if (!serverOwns) {
+        return text(
+          `## 🎯 Per-recipient cap for \`${name}\` (not applied)\n\n` +
+            `Requested: \`${recipient}\` ≤ **$${cap}** total.\n\n` +
+            `> Only the vault owner (${record.human}) can set it. From the owner wallet, call ` +
+            `\`setAllowedWithCap(${recipient}, true, ${toUsdcUnits(cap)})\` on the vault (${record.vault}).`,
+        )
+      }
+
+      const capUnits = toUsdcUnits(cap)
+      await setRecipientCap(record.vault, recipient, capUnits)
+      const { spent, remaining } = await readRecipientCap(record.vault, recipient)
+      const state = await readVault(record.vault)
+      const capLine =
+        cap > 0
+          ? `**\`${recipient}\` ≤ $${cap} total** (approved + capped). Spent so far: $${fromUsdcUnits(spent)} · remaining: $${fromUsdcUnits(remaining)}.`
+          : `**\`${recipient}\` approved, no per-recipient cap** (bounded only by the lifetime/daily/per-tx limits).`
+      return text(
+        `## 🎯 Set per-recipient cap on \`${name}\`\n\n` +
+          `${capLine}\n\n` +
+          `Enforced by AgentVault — a spend that pushes this recipient over its cap reverts ` +
+          `\`RecipientCapExceeded\`, even with lifetime budget to spare.\n\n` +
+          `${statusCard(record, state)}`,
+      )
     } catch (e) {
       return errorText(e)
     }
