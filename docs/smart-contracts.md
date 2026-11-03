@@ -163,7 +163,7 @@ A value-conserving fee on each spend — built so it can earn revenue without ev
 
 The contract is the *enforcement*. The **MCP server (`apps/mcp`) is the interface** — it lets Claude drive the vault in plain language, and it owns the off-chain pieces (wallet creation, ENS, World ID) that a contract can't do.
 
-Each of the six MCP tools maps to the contract:
+Each MCP tool maps to the contract:
 
 | MCP tool | Contract touchpoint | What the server adds around it |
 |---|---|---|
@@ -173,6 +173,8 @@ Each of the six MCP tools maps to the contract:
 | `fund_agent` | calls **`fund()`** (deployer approves + funds) | tops up the vault treasury; checks the deployer balance first |
 | `topup_gas` | ERC-20 `transfer` to the agent wallet | sends the agent USDC for gas (USDC is gas on Arc); reports the new wallet balance |
 | `get_agent` | reads `budgetRemaining` / `spent` / `balance` / `active` / `maxPerSpend` / `dailyLimit` | renders the status card |
+| `set_recipient_cap` | calls **`setAllowedWithCap()`** — approve a recipient + set its per-recipient sub-budget | owner-only; converts dollars → units, reports the recipient's remaining cap |
+| `sync_allowlist_from_ens` | calls `setAllowlistEnabled` + `setAllowedBatch()` | reads the approved-recipient list from an ENS text record (CCIP-Read) and writes it on-chain |
 
 ```mermaid
 sequenceDiagram
@@ -212,13 +214,17 @@ sequenceDiagram
 - `SafeERC20` on every token move; `ReentrancyGuard` on `spend` / `fund` / `withdraw`.
 - **Checks-effects-interactions:** `spent` is written before any transfer.
 - **Cap invariant:** `spent ≤ budgetCap` holds after any call sequence; `setCap` can never drop below `spent` (`CapBelowSpent`).
-- **Daily velocity limit (opt-in):** an optional rolling 24h ceiling (`setDailyLimit`, default off) reverts with `DailyLimitExceeded` and resets when the window elapses — a hijacked agent can't burst-drain even under the lifetime cap.
-- **On-chain health view:** `health()` returns `(status, capRemaining, todayRemaining)` for backend-free monitoring.
+- **Per-transaction cap (opt-in):** an item-level ceiling (`setMaxPerSpend`, default off) — no single spend may exceed it, regardless of remaining budget. Reverts `PerSpendLimitExceeded`.
+- **Daily velocity limit (opt-in):** an optional rolling 24h ceiling (`setDailyLimit`, default off) reverts with `DailyLimitExceeded`. It is truly rolling (hourly buckets; `spentLast24h()`), so no 24h stretch can ever exceed the limit — there is no window boundary to straddle for a 2× burst. A spend frees up 24–25h after it was made. A hijacked agent can't burst-drain even under the lifetime cap.
+- **Fixed agent:** `AGENT_ROLE` can never be granted after construction (`grantRole` reverts `AgentImmutable`), so a stolen owner key can't make itself the agent and `spend` the treasury away — it can only `withdraw` to `ownerPayout`. To change agents, deploy a new vault.
+- **Recipient allowlist (opt-in):** when on (`setAllowlistEnabled`), the agent may only pay owner-approved addresses; a spend to anyone else reverts `RecipientNotAllowed` even within budget. The agent (AGENT_ROLE) can never edit the list — only the human owner.
+- **Per-recipient sub-budget (opt-in):** an optional ceiling on cumulative spend to a *single* destination (`setRecipientCap` / `setAllowedWithCap`) — "vendor 0xABC ≤ $100". Bounds *how much each approved party gets*, not just the total; reverts `RecipientCapExceeded`. Owner-set only. The granular complement to the allowlist (who may be paid) — and the differentiator over a flat session-key / Safe-Guard allowance, since `spend()` already sees `to`.
+- **On-chain health view:** `health()` returns `(status, capRemaining, todayRemaining)` for backend-free monitoring; `recipientRemaining(addr)` reads a single vendor's remaining sub-budget.
 - **Non-bricking fee:** fee collection failure can't block a spend.
 - **Owner liveness:** `revoke()` and `withdraw()` are always available to the human.
-- **Custom errors:** `BudgetExceeded` · `DailyLimitExceeded` · `InsufficientBalance` · `AgentRevoked` · `CapBelowSpent` · `FeeTooHigh` · `FeeRecipientZero` · `ZeroAddress` · `ZeroAmount`.
+- **Custom errors:** `BudgetExceeded` · `PerSpendLimitExceeded` · `DailyLimitExceeded` · `RecipientNotAllowed` · `RecipientCapExceeded` · `InsufficientBalance` · `AgentImmutable` · `AgentRevoked` · `CapBelowSpent` · `FeeTooHigh` · `FeeRecipientZero` · `ZeroAddress` · `ZeroAmount`.
 
-**Tests:** `packages/contracts/test/AgentVault.t.sol` — **56 passing**, covering the over-budget revert, the daily-limit revert + window reset, the `health()` states, underfunded vault, cap changes, revoke/reinstate, the withdraw-only-to-`ownerPayout` lock (including a compromised-owner-key case), the recipient allowlist (not-allowed reverts even under budget; agent can't edit it), the value-conserving fee, the non-bricking fee (hostile recipient), and access control. Verified end-to-end against a live node by `bun run --filter='@stablesettle/mcp' e2e:local`.
+**Tests:** `packages/contracts/test/AgentVault.t.sol` — **75 passing**, covering the over-budget revert, the per-transaction-cap revert, the daily-limit revert + rolling-window aging (incl. a no-boundary-burst regression and a fuzz test that no 24h stretch exceeds the limit), the fixed-agent lock (owner can't grant `AGENT_ROLE`), the recipient allowlist (not-allowed reverts even under budget; agent can't edit it), the **per-recipient sub-budget** (over-cap reverts even under budget; per-recipient not global; works with the allowlist; raise/clear), the `health()` states, underfunded vault, cap changes, revoke/reinstate, the withdraw-only-to-`ownerPayout` lock (including a compromised-owner-key case), the value-conserving fee, the non-bricking fee (hostile recipient), and access control. Verified end-to-end against a live node by `bun run --filter='@stablesettle/mcp' e2e:local` (**19 checks**, incl. a per-recipient-cap revert).
 
 > ⚠️ Unaudited testnet code. These properties raise the floor; a mainnet launch needs a professional audit.
 
@@ -298,7 +304,7 @@ Orders are keyed by a caller-supplied `bytes32 orderId`. Display fields (`produc
 | `reportActualDuties(orderId, actual)` | `ORACLE_ROLE` | `Delivered` (no change) | Auto-flags if `actual > estimated × 2`. |
 | `clearAnomaly(orderId)` | `ADMIN_ROLE` | `Delivered` (no change) | Clears the flag after review. |
 | `release(orderId)` | anyone | `Delivered` → `Released` | Requires window elapsed **and** `!anomalyFlagged`. `nonReentrant`. |
-| `raiseDispute(orderId)` | `ORACLE_ROLE` or `customer` | `Funded`/`Delivered` → `Disputed` | Freezes the order. |
+| `raiseDispute(orderId)` | `ORACLE_ROLE` or `customer` | `Funded`/`Delivered` → `Disputed` | Freezes the order. The customer can only dispute a `Delivered` order **inside** its refund window (`DisputeWindowClosed` after); the oracle can escalate late. |
 | `resolveDispute(orderId, toCustomer, toMerchant, toCreator, toPlatform)` | `ADMIN_ROLE` | `Disputed` → `Resolved` | Four payouts must sum **exactly** to `totalAmount`. `nonReentrant`. |
 
 Views: `getOrder(bytes32) → Order` · `orderExists(bytes32) → bool`.

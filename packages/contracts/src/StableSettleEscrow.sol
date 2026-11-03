@@ -135,6 +135,8 @@ contract StableSettleEscrow is AccessControl, ReentrancyGuard {
     error ZeroAddress();
     error ZeroAmount();
     error RefundWindowNotElapsed(uint256 nowTs, uint256 releasableAt);
+    /// @notice The customer tried to dispute after the refund window closed.
+    error DisputeWindowClosed(uint256 nowTs, uint256 closedAt);
     error AnomalyFlaggedRelease();
     error NotFlagged();
 
@@ -291,11 +293,19 @@ contract StableSettleEscrow is AccessControl, ReentrancyGuard {
 
     /// @notice Open a dispute (package refused). Callable by the oracle or the customer.
     /// @dev Reachable from Funded or Delivered. Freezes the order until an admin resolves it.
+    ///      The customer may only dispute a delivered order inside its refund window: once the window
+    ///      has passed the payout is due, and `release` is merely not called yet. The oracle (a trusted
+    ///      role) can still escalate late.
     function raiseDispute(bytes32 orderId) external {
         Order storage order = _orders[orderId];
         if (order.totalAmount == 0) revert OrderNotFound();
         if (order.state != OrderState.Funded && order.state != OrderState.Delivered) revert InvalidState();
-        if (!hasRole(ORACLE_ROLE, msg.sender) && msg.sender != order.split.customer) revert InvalidState();
+        bool isOracle = hasRole(ORACLE_ROLE, msg.sender);
+        if (!isOracle && msg.sender != order.split.customer) revert InvalidState();
+        if (!isOracle && order.state == OrderState.Delivered) {
+            uint256 closesAt = order.deliveredAt + order.refundWindowSeconds;
+            if (block.timestamp >= closesAt) revert DisputeWindowClosed(block.timestamp, closesAt);
+        }
 
         order.state = OrderState.Disputed;
         emit DisputeRaised(orderId, msg.sender);

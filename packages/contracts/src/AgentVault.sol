@@ -5,6 +5,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title AgentVault
 /// @notice A budget-capped treasury for a single AI agent. A human owner funds it and sets a
@@ -39,6 +40,11 @@ contract AgentVault is AccessControl, ReentrancyGuard {
 
     /// @notice The rolling window for the optional daily velocity limit.
     uint256 public constant DAY = 1 days;
+    /// @notice Granularity of the rolling daily window. Spends are tallied per hour.
+    uint256 public constant BUCKET = 1 hours;
+    /// @dev 24 hours of buckets plus the current one. Summing all of them covers every spend in the last
+    ///      24h (and up to one hour more), so no 24h window can ever exceed `dailyLimit`.
+    uint256 private constant BUCKETS = DAY / BUCKET + 1;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Storage
@@ -81,12 +87,17 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     /// @notice Optional rolling 24h spend ceiling, in token units. 0 = disabled (only the lifetime cap applies).
     ///         A velocity guard: even with budget left under the lifetime cap, the agent cannot burst more than
     ///         this within any 24h window — so a hijacked agent can't drain a year's budget in one minute.
-    ///         Like the lifetime cap, it's enforced in `spend` (reverts), not flagged.
+    ///         Like the lifetime cap, it's enforced in `spend` (reverts), not flagged. Truly rolling (hourly
+    ///         buckets), so there is no window boundary to straddle; a spend frees up 24–25h after it's made.
     uint256 public dailyLimit;
-    /// @notice Start of the current 24h window. Rolls forward to the spend that opens a fresh window.
-    uint256 public windowStart;
-    /// @notice Amount spent within the current window. Logically resets once the window elapses.
-    uint256 public spentToday;
+
+    /// @dev One hour of spend: `hour` is block.timestamp / BUCKET, `amount` the total spent in it.
+    struct HourBucket {
+        uint64 hour;
+        uint192 amount;
+    }
+    /// @dev Ring buffer indexed by hour % BUCKETS. Only written while a daily limit is set.
+    HourBucket[BUCKETS] private _hourBuckets;
 
     /// @notice When true, the agent may only pay addresses on `allowedRecipients`. Default false (off),
     ///         so existing behaviour is unchanged until an owner opts in. This is the defence against a
@@ -96,6 +107,18 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     bool public allowlistEnabled;
     /// @notice Addresses the agent is permitted to pay when `allowlistEnabled` is true. Owner-managed.
     mapping(address => bool) public allowedRecipients;
+
+    /// @notice Optional per-recipient spend ceiling, in token units. 0 = no per-recipient limit for that
+    ///         address. Where the allowlist answers *who* the agent may pay, this answers *how much each
+    ///         one may receive* — e.g. "vendor 0xABC ≤ $100, courier 0xDEF ≤ $20" — a granular sub-budget
+    ///         under the lifetime cap. This is what a flat session-key / Safe-Guard allowance can't express:
+    ///         our `spend` already sees `to`, so the contract can bound spend *per destination*, not just in
+    ///         total. Owner-set only; enforced in `spend` (reverts), never flagged off-chain.
+    mapping(address => uint256) public recipientCap;
+    /// @notice Cumulative amount paid to a given recipient *while a per-recipient cap was in effect*. Only
+    ///         written when `recipientCap[to] > 0`, so setting a cap bounds spends from that point forward
+    ///         and never reverts a past payment — matching how `maxPerSpend`/`dailyLimit` behave.
+    mapping(address => uint256) public recipientSpent;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Events — an off-chain audit log / deployment card is built entirely from these.
@@ -118,6 +141,7 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     event DailyLimitChanged(uint256 oldLimit, uint256 newLimit);
     event AllowlistEnabledChanged(bool enabled);
     event RecipientAllowedChanged(address indexed recipient, bool allowed);
+    event RecipientCapChanged(address indexed recipient, uint256 cap);
     event Revoked(address indexed by);
     event Reinstated(address indexed by);
     event Withdrawn(address indexed to, uint256 amount);
@@ -137,6 +161,10 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     /// @notice The allowlist is on and the agent tried to pay an address that isn't approved. The spend
     ///         is refused regardless of budget — a hijacked agent can't be talked into paying a stranger.
     error RecipientNotAllowed(address recipient);
+    /// @notice The agent tried to pay a recipient more than its per-recipient sub-budget allows. The
+    ///         destination is approved and the spend is within the lifetime/daily/per-tx limits, but this
+    ///         specific recipient has hit its own ceiling.
+    error RecipientCapExceeded(address recipient, uint256 requested, uint256 remaining);
     /// @notice A new cap cannot be set below what the agent has already spent.
     error CapBelowSpent(uint256 newCap, uint256 spent);
     error AgentRevoked();
@@ -147,6 +175,8 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     error FeeRecipientZero();
     /// @notice The vault does not hold enough token to cover the transfer.
     error InsufficientBalance(uint256 requested, uint256 balance);
+    /// @notice AGENT_ROLE can never be granted after construction — not even by the owner.
+    error AgentImmutable();
 
     // ─────────────────────────────────────────────────────────────────────────
     // Constructor
@@ -198,6 +228,20 @@ contract AgentVault is AccessControl, ReentrancyGuard {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Roles
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice The agent is fixed for the life of the vault: AGENT_ROLE can't be granted after
+    ///         construction. Otherwise the owner key (DEFAULT_ADMIN_ROLE) could make itself the agent,
+    ///         lift the limits, and `spend` the treasury to any address — bypassing the `ownerPayout`
+    ///         anti-theft invariant. A compromised owner key alone can still only move funds home;
+    ///         to change agents, deploy a new vault. Revoking (`revokeRole`, `revoke`) still works.
+    function grantRole(bytes32 role, address account) public override {
+        if (role == AGENT_ROLE) revert AgentImmutable();
+        super.grantRole(role, account);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Agent
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -214,6 +258,17 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         // budget. The agent (AGENT_ROLE) can never edit this list — only HUMAN_OWNER_ROLE can.
         if (allowlistEnabled && !allowedRecipients[to]) revert RecipientNotAllowed(to);
 
+        // Per-recipient sub-budget: an optional ceiling on cumulative spend to THIS destination. 0 = no
+        // limit for `to`. The granular complement to the allowlist — it bounds *how much* each approved
+        // party can receive, independent of how much lifetime budget remains. Most meaningful with the
+        // allowlist on (a closed set of priced vendors), but enforced whenever a cap is set.
+        uint256 rCap = recipientCap[to];
+        if (rCap > 0) {
+            uint256 rSpent = recipientSpent[to];
+            uint256 rRemaining = rSpent >= rCap ? 0 : rCap - rSpent;
+            if (amount > rRemaining) revert RecipientCapExceeded(to, amount, rRemaining);
+        }
+
         // Per-transaction cap: an item-level ceiling. 0 = disabled. Checked first so a single oversized
         // spend reverts with the specific error, regardless of remaining budget.
         if (maxPerSpend > 0 && amount > maxPerSpend) revert PerSpendLimitExceeded(amount, maxPerSpend);
@@ -224,13 +279,17 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         // Velocity guard: an optional rolling 24h limit on top of the lifetime cap. 0 = disabled.
         // Even with budget left under the cap, the agent can't burst more than `dailyLimit` per window.
         if (dailyLimit > 0) {
-            // A window that has elapsed is treated as empty without needing a prior write.
-            uint256 usedToday = block.timestamp >= windowStart + DAY ? 0 : spentToday;
-            uint256 remainingToday = usedToday >= dailyLimit ? 0 : dailyLimit - usedToday;
+            uint256 remainingToday = dailyRemaining();
             if (amount > remainingToday) revert DailyLimitExceeded(amount, remainingToday);
-            // Open a fresh window on the first spend after it elapsed (CEI: effects before transfer).
-            if (usedToday == 0) windowStart = block.timestamp;
-            spentToday = usedToday + amount;
+            // Record into this hour's bucket, recycling the slot if it holds an older hour (CEI).
+            uint256 hour = block.timestamp / BUCKET;
+            HourBucket storage b = _hourBuckets[hour % BUCKETS];
+            if (b.hour == hour) {
+                b.amount = SafeCast.toUint192(uint256(b.amount) + amount);
+            } else {
+                b.hour = SafeCast.toUint64(hour);
+                b.amount = SafeCast.toUint192(amount);
+            }
         }
 
         uint256 bal = token.balanceOf(address(this));
@@ -239,6 +298,9 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         // Effects before interaction (CEI).
         uint256 newSpent = spent + amount;
         spent = newSpent;
+        // Only record per-recipient spend when a cap is active for `to`, so the common (uncapped) path
+        // pays no extra storage cost and caps bind only spends made while they're in effect.
+        if (rCap > 0) recipientSpent[to] += amount;
 
         // Value-conserving protocol fee: the recipient nets `amount - fee`, the protocol gets `fee`,
         // and the full `amount` counts against the budget. Fee is 0 unless a FEE_ADMIN enabled it.
@@ -338,6 +400,29 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         }
     }
 
+    /// @notice Set (or clear, with 0) a per-recipient spend ceiling. HUMAN_OWNER_ROLE only — the agent can
+    ///         never raise its own per-vendor limit. 0 removes the sub-budget for that recipient.
+    /// @dev Like the other limits, applies to spends made while the cap is in effect; it does not
+    ///      retroactively count payments made before the cap was set, and never reverts a past spend.
+    function setRecipientCap(address recipient, uint256 cap) external onlyRole(HUMAN_OWNER_ROLE) {
+        if (recipient == address(0)) revert ZeroAddress();
+        recipientCap[recipient] = cap;
+        emit RecipientCapChanged(recipient, cap);
+    }
+
+    /// @notice Approve a recipient AND set its per-recipient cap in one call. HUMAN_OWNER_ROLE only.
+    ///         Convenience for the common "add priced vendor 0xABC ≤ $100" flow. Pass cap 0 for no sub-budget.
+    function setAllowedWithCap(address recipient, bool allowed, uint256 cap)
+        external
+        onlyRole(HUMAN_OWNER_ROLE)
+    {
+        if (recipient == address(0)) revert ZeroAddress();
+        allowedRecipients[recipient] = allowed;
+        recipientCap[recipient] = cap;
+        emit RecipientAllowedChanged(recipient, allowed);
+        emit RecipientCapChanged(recipient, cap);
+    }
+
     /// @notice Revoke the agent — it can no longer spend. Funds stay in the vault for withdrawal.
     function revoke() external onlyRole(HUMAN_OWNER_ROLE) {
         if (!active) revert AgentRevoked();
@@ -373,11 +458,30 @@ contract AgentVault is AccessControl, ReentrancyGuard {
         return budgetCap - spent;
     }
 
-    /// @notice Token still spendable in the current 24h window. type(uint256).max when no daily limit is set.
+    /// @notice Token still spendable in the rolling 24h window. type(uint256).max when no daily limit is set.
     function dailyRemaining() public view returns (uint256) {
         if (dailyLimit == 0) return type(uint256).max;
-        uint256 usedToday = block.timestamp >= windowStart + DAY ? 0 : spentToday;
+        uint256 usedToday = spentLast24h();
         return usedToday >= dailyLimit ? 0 : dailyLimit - usedToday;
+    }
+
+    /// @notice Amount spent in the rolling window (the last 24h, counted in whole hours, so up to 25h back).
+    ///         Only spends made while a daily limit was set are tallied.
+    function spentLast24h() public view returns (uint256 used) {
+        uint256 hour = block.timestamp / BUCKET;
+        for (uint256 i = 0; i < BUCKETS; i++) {
+            HourBucket memory b = _hourBuckets[i];
+            if (uint256(b.hour) + BUCKETS > hour) used += b.amount;
+        }
+    }
+
+    /// @notice Token still payable to `recipient` under its per-recipient cap. type(uint256).max when no
+    ///         per-recipient cap is set for that address (only the lifetime/daily/per-tx limits apply).
+    function recipientRemaining(address recipient) external view returns (uint256) {
+        uint256 rCap = recipientCap[recipient];
+        if (rCap == 0) return type(uint256).max;
+        uint256 rSpent = recipientSpent[recipient];
+        return rSpent >= rCap ? 0 : rCap - rSpent;
     }
 
     /// @notice A compact on-chain health signal for dashboards and monitors — readable by anyone, no backend.

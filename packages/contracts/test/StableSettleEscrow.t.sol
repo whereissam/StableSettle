@@ -506,4 +506,45 @@ contract StableSettleEscrowTest is Test {
         vm.expectRevert(StableSettleEscrow.ZeroAddress.selector);
         new StableSettleEscrow(IERC20(address(0)), admin);
     }
+
+    // ── security review regressions (2026-11-03) ──────────────────────────────────
+
+    function _deliver() internal {
+        vm.prank(admin);
+        escrow.markDelivered(ORDER);
+    }
+
+    /// The customer can no longer freeze a payout that is already due.
+    function test_raiseDispute_customerAfterWindowReverts() public {
+        _create(1 days);
+        _fund();
+        _deliver();
+        uint256 closesAt = block.timestamp + 1 days;
+        vm.warp(closesAt);
+        vm.prank(customer);
+        vm.expectRevert(abi.encodeWithSelector(StableSettleEscrow.DisputeWindowClosed.selector, closesAt, closesAt));
+        escrow.raiseDispute(ORDER);
+        escrow.release(ORDER); // still releasable by anyone
+        assertEq(uint8(escrow.getOrder(ORDER).state), uint8(StableSettleEscrow.OrderState.Released));
+    }
+
+    function test_raiseDispute_customerInsideWindow() public {
+        _create(1 days);
+        _fund();
+        _deliver();
+        vm.warp(block.timestamp + 1 days - 1);
+        vm.prank(customer);
+        escrow.raiseDispute(ORDER);
+        assertEq(uint8(escrow.getOrder(ORDER).state), uint8(StableSettleEscrow.OrderState.Disputed));
+    }
+
+    function test_raiseDispute_oracleAfterWindowStillAllowed() public {
+        _create(1 days);
+        _fund();
+        _deliver();
+        vm.warp(block.timestamp + 30 days);
+        vm.prank(admin); // oracle role
+        escrow.raiseDispute(ORDER);
+        assertEq(uint8(escrow.getOrder(ORDER).state), uint8(StableSettleEscrow.OrderState.Disputed));
+    }
 }
